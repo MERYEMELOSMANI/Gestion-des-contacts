@@ -1,23 +1,27 @@
 from contact import Contact
+import os
 
 class AddressBook:
     def __init__(self):
         self.contacts = []
-        self.nom_fichier = "contacts.txt"
+        
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        self.nom_fichier = os.path.join(base_dir, "contacts.txt")
+        
         self.charger()
 
     def charger(self):
-        self.contacts = []
-        try:
-            f = open(self.nom_fichier, "r")
-            for ligne in f:
-                donnees = ligne.split(";")
-                if len(donnees) == 3:
-                    c = Contact(donnees[0], donnees[1], donnees[2].strip())
-                    self.contacts.append(c)
-            f.close()
-        except:
-            pass
+            self.contacts = [] # On vide la mémoire actuelle
+            try:
+                if os.path.exists(self.nom_fichier):
+                    with open(self.nom_fichier, "r") as f:
+                        for ligne in f:
+                            donnees = ligne.split(";")
+                            if len(donnees) == 3:
+                                c = Contact(donnees[0], donnees[1], donnees[2].strip())
+                                self.contacts.append(c)
+            except Exception as e:
+                print(f"Erreur lors du chargement : {e}")
 
     def enregistrer(self):
         f = open(self.nom_fichier, "w")
