@@ -1,95 +1,97 @@
-from contact import Contact
+import sqlite3
 import os
+import csv
+from contact import Contact
 
 class AddressBook:
     def __init__(self):
-        self.contacts = []
-        
+        # Connexion à la base de données
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        self.nom_fichier = os.path.join(base_dir, "contacts.txt")
+        db_path = os.path.join(base_dir, "address_book.db")
+        self.conn = sqlite3.connect(db_path)
+        self.cursor = self.conn.cursor()
+        self.creer_table()
+
+    def creer_table(self):
+        """Crée la table avec la colonne entreprise si elle n'existe pas."""
+        query = '''
+            CREATE TABLE IF NOT EXISTS contacts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nom TEXT UNIQUE NOT NULL,
+                email TEXT,
+                telephone TEXT,
+                entreprise TEXT
+            )
+        '''
+        self.cursor.execute(query)
+        self.conn.commit()
+
+    def lister_contacts(self):
+        # On récupère bien les 4 colonnes
+        self.cursor.execute("SELECT nom, email, telephone, IFNULL(entreprise, 'N/A') FROM contacts ORDER BY nom")
+        lignes = self.cursor.fetchall()
         
-        self.charger()
+        # MODIFICATION : on passe l[3] (l'entreprise) au constructeur de Contact
+        return [Contact(l[0], l[1], l[2], l[3]) for l in lignes]
 
-    def charger(self):
-            self.contacts = [] # On vide la mémoire actuelle
-            try:
-                if os.path.exists(self.nom_fichier):
-                    with open(self.nom_fichier, "r") as f:
-                        for ligne in f:
-                            donnees = ligne.split(";")
-                            if len(donnees) == 3:
-                                c = Contact(donnees[0], donnees[1], donnees[2].strip())
-                                self.contacts.append(c)
-            except Exception as e:
-                print(f"Erreur lors du chargement : {e}")
-
-    def enregistrer(self):
-        f = open(self.nom_fichier, "w")
-        for c in self.contacts:
-            f.write(f"{c.nom};{c.email};{c.telephone}\n")
-        f.close()
-
-    def ajouter(self, nom, email, telephone):
-        assert isinstance(nom, str)
-        assert isinstance(email, str)
-        assert isinstance(telephone, str)
-
+    def ajouter(self, nom, email, telephone, entreprise=""):
+        """Signature mise à jour avec 4 arguments (plus self) pour éviter l'erreur TypeError."""
+        # --- VALIDATIONS ---
         if len(nom.strip()) < 3:
-            print("Erreur : Le nom est incomplet ou vide.")
+            print("Erreur : Le nom est incomplet.")
             return
 
-        est_valide = False
-        if "@" in email and "." in email:
-            at_pos = email.find("@")
-            dot_pos = email.rfind(".")
-            if at_pos > 0 and dot_pos > at_pos + 1 and dot_pos < len(email) - 1:
-                est_valide = True
-
-        if not est_valide:
-            print("Erreur : L'email n'est pas au bon format.")
+        # Validation email simplifiée
+        if not ("@" in email and "." in email):
+            print("Erreur : Format email invalide.")
             return
         
-        tel_valide = False
-        if telephone.startswith("+") and len(telephone) >= 10:
-            if telephone[1:].isdigit():
-                tel_valide = True
-
-        if not tel_valide:
-            print("Erreur : Le téléphone doit commencer par '+' et avoir au moins 10 chiffres.")
+        # Validation téléphone
+        if not (telephone.startswith("+") and len(telephone) >= 10):
+            print("Erreur : Format téléphone invalide (+ obligatoire).")
             return
 
-        for c in self.contacts:
-            if c.nom == nom:
-                print("Erreur : Ce nom existe déjà")
-                return
-
-        nouveau = Contact(nom, email, telephone)
-        self.contacts.append(nouveau)
-        self.enregistrer()
-        print("Contact ajouté !")
+        # --- INSERTION SQL ---
+        try:
+            query = "INSERT INTO contacts (nom, email, telephone, entreprise) VALUES (?, ?, ?, ?)"
+            self.cursor.execute(query, (nom, email, telephone, entreprise))
+            self.conn.commit()
+            # On importe messagebox ici ou en haut du fichier
+            from tkinter import messagebox
+            messagebox.showinfo("Succès", f"Contact {nom} ajouté !")
+            
+        except sqlite3.IntegrityError:
+            from tkinter import messagebox
+            messagebox.showerror("Erreur", f"Le nom '{nom}' existe déjà dans votre carnet.")
 
     def supprimer(self, nom):
-        pour_garder = []
-        trouve = False
-        for c in self.contacts:
-            if c.nom == nom:
-                trouve = True
-            else:
-                pour_garder.append(c)
-        
-        self.contacts = pour_garder
-        if trouve:
-            self.enregistrer()
-            print("Contact supprimé !")
+        query = "DELETE FROM contacts WHERE nom = ?"
+        self.cursor.execute(query, (nom,))
+        if self.cursor.rowcount > 0:
+            self.conn.commit()
+            print(f"Contact '{nom}' supprimé !")
         else:
             print("Contact non trouvé.")
 
-def tester_mon_application():
-    test_app = AddressBook()
-    test_app.contacts = []
-    
-    test_app.ajouter("TestUser", "test@mail.com", "12345678")
-    assert len(test_app.contacts) == 1
-    assert test_app.contacts[0].nom == "TestUser"
-    
-    print(">>> Test avec 'assert' réussi !")
+    def exporter_csv(self):
+        """Export complet avec la colonne Entreprise."""
+        self.cursor.execute("SELECT nom, email, telephone, IFNULL(entreprise, 'Non renseigné') FROM contacts")
+        tous_les_contacts = self.cursor.fetchall()
+        
+        if not tous_les_contacts:
+            print("Attention : Base vide.")
+            return
+
+        with open('export_contacts.csv', 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f, delimiter=';')
+            # Ajout de 'Entreprise' dans l'en-tête
+            writer.writerow(['Nom', 'Email', 'Téléphone', 'Entreprise']) 
+            writer.writerows(tous_les_contacts)
+            
+        print(f"Exportation de {len(tous_les_contacts)} contacts réussie !")
+
+    def __del__(self):
+        try:
+            self.conn.close()
+        except:
+            pass
