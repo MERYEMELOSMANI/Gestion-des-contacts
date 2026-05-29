@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Modifier' if contact else 'Nouveau contact' }} — Carnet d'adresses{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-7 col-lg-6">
+
+    <div class="d-flex align-items-center gap-2 mb-4">
+      <a href="{{ url_for('index') }}" class="btn btn-sm btn-outline-secondary" title="Retour">
+        <i class="bi bi-arrow-left"></i>
+      </a>
+      <h2 class="fw-bold mb-0">
+        {{ 'Modifier le contact' if contact else 'Nouveau contact' }}
+      </h2>
+    </div>
+
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <form method="post" action="{{ action }}" novalidate id="contactForm">
+
+          <div class="mb-3">
+            <label class="form-label fw-medium" for="nom">
+              Nom <span class="text-danger">*</span>
+            </label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-person text-muted"></i></span>
+              <input id="nom" name="nom" class="form-control" placeholder="Jean Dupont"
+                     required minlength="3" value="{{ form_data.get('nom', '') }}">
+              <div class="invalid-feedback">Le nom doit contenir au moins 3 caractères.</div>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-medium" for="email">Email</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-envelope text-muted"></i></span>
+              <input id="email" name="email" type="email" class="form-control"
+                     placeholder="jean.dupont@exemple.com" value="{{ form_data.get('email', '') }}">
+              <div class="invalid-feedback">Format email invalide.</div>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-medium" for="telephone">Téléphone</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-telephone text-muted"></i></span>
+              <input id="telephone" name="telephone" class="form-control"
+                     placeholder="+33612345678" pattern="^\+.{9,}$"
+                     value="{{ form_data.get('telephone', '') }}">
+              <div class="invalid-feedback">Format international requis : commence par + (ex : +33612345678).</div>
+            </div>
+            <div class="form-text">Format international, ex : +33 6 12 34 56 78</div>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label fw-medium" for="entreprise">Entreprise</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-building text-muted"></i></span>
+              <input id="entreprise" name="entreprise" class="form-control"
+                     placeholder="Acme Corp" value="{{ form_data.get('entreprise', '') }}">
+            </div>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button class="btn btn-primary px-4" type="submit">
+              <i class="bi bi-check2 me-1"></i>Enregistrer
+            </button>
+            <a class="btn btn-outline-secondary" href="{{ url_for('index') }}">Annuler</a>
+          </div>
+
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  'use strict';
+  var form = document.getElementById('contactForm');
+  form.addEventListener('submit', function (e) {
+    if (!form.checkValidity()) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    form.classList.add('was-validated');
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}Connexion — Carnet d'adresses{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-4">
+  <div class="col-sm-9 col-md-5 col-lg-4">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+
+        <div class="text-center mb-4">
+          <div class="bg-primary rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+               style="width:60px;height:60px;">
+            <i class="bi bi-person-lock text-white fs-2"></i>
+          </div>
+          <h4 class="fw-bold mb-1">Administration</h4>
+          <p class="text-muted small mb-0">Connectez-vous pour gérer vos contacts</p>
+        </div>
+
+        <form method="post" novalidate>
+          <div class="mb-3">
+            <label class="form-label fw-medium" for="username">Identifiant</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-person text-muted"></i></span>
+              <input id="username" name="username" class="form-control" placeholder="admin" required autofocus>
+            </div>
+          </div>
+          <div class="mb-4">
+            <label class="form-label fw-medium" for="password">Mot de passe</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-lock text-muted"></i></span>
+              <input id="password" name="password" type="password" class="form-control" placeholder="••••••••" required>
+            </div>
+          </div>
+          <button class="btn btn-primary w-100 py-2" type="submit">
+            <i class="bi bi-box-arrow-in-right me-2"></i>Se connecter
+          </button>
+        </form>
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
