@@ -3,7 +3,7 @@
 
 {% block content %}
 <div class="row justify-content-center">
-  <div class="col-md-7 col-lg-6">
+  <div class="col-md-8 col-lg-7">
 
     <div class="d-flex align-items-center gap-2 mb-4">
       <a href="{{ url_for('index') }}" class="btn btn-sm btn-outline-secondary" title="Retour">
@@ -18,10 +18,13 @@
       <div class="card-body p-4">
         <form method="post" action="{{ action }}" novalidate id="contactForm">
 
+          {# ── Informations de base ── #}
+          <h6 class="text-muted text-uppercase fw-semibold mb-3" style="font-size:.75rem;letter-spacing:.05em;">
+            <i class="bi bi-person me-1"></i>Informations de base
+          </h6>
+
           <div class="mb-3">
-            <label class="form-label fw-medium" for="nom">
-              Nom <span class="text-danger">*</span>
-            </label>
+            <label class="form-label fw-medium" for="nom">Nom <span class="text-danger">*</span></label>
             <div class="input-group">
               <span class="input-group-text"><i class="bi bi-person text-muted"></i></span>
               <input id="nom" name="nom" class="form-control" placeholder="Jean Dupont"
@@ -30,34 +33,76 @@
             </div>
           </div>
 
-          <div class="mb-3">
-            <label class="form-label fw-medium" for="email">Email</label>
-            <div class="input-group">
-              <span class="input-group-text"><i class="bi bi-envelope text-muted"></i></span>
-              <input id="email" name="email" type="email" class="form-control"
-                     placeholder="jean.dupont@exemple.com" value="{{ form_data.get('email', '') }}">
-              <div class="invalid-feedback">Format email invalide.</div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-medium" for="email">Email</label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-envelope text-muted"></i></span>
+                <input id="email" name="email" type="email" class="form-control"
+                       placeholder="jean@exemple.com" value="{{ form_data.get('email', '') }}">
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-medium" for="telephone">Téléphone</label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-telephone text-muted"></i></span>
+                <input id="telephone" name="telephone" class="form-control"
+                       placeholder="+33612345678" pattern="^\+.{9,}$"
+                       value="{{ form_data.get('telephone', '') }}">
+                <div class="invalid-feedback">Format : +33612345678</div>
+              </div>
+            </div>
+          </div>
+
+          {# ── Partie 8 : Informations professionnelles ── #}
+          <hr class="my-3">
+          <h6 class="text-muted text-uppercase fw-semibold mb-3" style="font-size:.75rem;letter-spacing:.05em;">
+            <i class="bi bi-briefcase me-1"></i>Informations professionnelles
+          </h6>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-medium" for="categorie">Catégorie</label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-tag text-muted"></i></span>
+                <select id="categorie" name="categorie" class="form-select">
+                  {% for cat in categories %}
+                  <option value="{{ cat }}"
+                    {{ 'selected' if form_data.get('categorie', 'Client') == cat else '' }}>
+                    {{ cat }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-medium" for="fonction">Fonction</label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-person-badge text-muted"></i></span>
+                <input id="fonction" name="fonction" class="form-control"
+                       placeholder="Médecin, Directeur…"
+                       value="{{ form_data.get('fonction', '') }}">
+              </div>
             </div>
           </div>
 
           <div class="mb-3">
-            <label class="form-label fw-medium" for="telephone">Téléphone</label>
-            <div class="input-group">
-              <span class="input-group-text"><i class="bi bi-telephone text-muted"></i></span>
-              <input id="telephone" name="telephone" class="form-control"
-                     placeholder="+33612345678" pattern="^\+.{9,}$"
-                     value="{{ form_data.get('telephone', '') }}">
-              <div class="invalid-feedback">Format international requis : commence par + (ex : +33612345678).</div>
-            </div>
-            <div class="form-text">Format international, ex : +33 6 12 34 56 78</div>
-          </div>
-
-          <div class="mb-4">
-            <label class="form-label fw-medium" for="entreprise">Entreprise</label>
+            <label class="form-label fw-medium" for="entreprise">Entreprise / Établissement</label>
             <div class="input-group">
               <span class="input-group-text"><i class="bi bi-building text-muted"></i></span>
               <input id="entreprise" name="entreprise" class="form-control"
-                     placeholder="Acme Corp" value="{{ form_data.get('entreprise', '') }}">
+                     placeholder="Clinique Saint-Louis, Acme Corp…"
+                     value="{{ form_data.get('entreprise', '') }}">
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label fw-medium" for="adresse">Adresse</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-geo-alt text-muted"></i></span>
+              <input id="adresse" name="adresse" class="form-control"
+                     placeholder="12 rue de la Paix, 75001 Paris"
+                     value="{{ form_data.get('adresse', '') }}">
             </div>
           </div>
 
@@ -71,7 +116,6 @@
         </form>
       </div>
     </div>
-
   </div>
 </div>
 {% endblock %}
@@ -82,10 +126,7 @@
   'use strict';
   var form = document.getElementById('contactForm');
   form.addEventListener('submit', function (e) {
-    if (!form.checkValidity()) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
+    if (!form.checkValidity()) { e.preventDefault(); e.stopPropagation(); }
     form.classList.add('was-validated');
   });
 })();
