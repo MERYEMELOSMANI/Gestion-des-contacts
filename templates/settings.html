@@ -43,17 +43,37 @@
              placeholder="{% if configured %}Laisser vide pour conserver l'actuel{% else %}xxxx xxxx xxxx xxxx{% endif %}">
     </div>
 
-    <div style="background:var(--surface-hover); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:24px;">
-      <div style="font-weight:600; font-size:13px; color:var(--text-2); margin-bottom:10px;">
-        <i class="bi bi-info-circle" style="color:var(--primary); margin-right:6px;"></i>Comment obtenir un mot de passe d'application Google ?
+    <div style="background:var(--surface-hover); border:1px solid var(--border); border-radius:12px; padding:18px; margin-bottom:24px;">
+      <div style="font-weight:700; font-size:13px; color:var(--text-2); margin-bottom:14px; display:flex; align-items:center; gap:8px;">
+        <i class="bi bi-info-circle-fill" style="color:var(--primary);"></i>Comment obtenir un mot de passe d'application Gmail ?
       </div>
-      <ol style="font-size:13px; color:var(--text-3); padding-left:18px; line-height:2;">
-        <li>Activez la <strong style="color:var(--text-2);">validation en 2 étapes</strong> sur votre compte Google</li>
-        <li>Allez dans <strong style="color:var(--text-2);">Mon compte Google → Sécurité</strong></li>
-        <li>Cherchez <strong style="color:var(--text-2);">"Mots de passe des applications"</strong></li>
-        <li>Créez un mot de passe pour <em>Autre (nom personnalisé)</em> → tapez "ContactPro"</li>
-        <li>Copiez le code à 16 caractères généré et collez-le ci-dessus</li>
-      </ol>
+
+      <div style="display:flex; flex-direction:column; gap:10px; font-size:13px; color:var(--text-2);">
+        <div style="display:flex; gap:12px; align-items:flex-start;">
+          <span style="min-width:24px; height:24px; border-radius:50%; background:var(--primary); color:white; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700;">1</span>
+          <div>Activez d'abord la <strong>Validation en 2 étapes</strong> sur votre compte Google :<br>
+          <a href="https://myaccount.google.com/signinoptions/two-step-verification" target="_blank" style="color:var(--primary); font-weight:600;">myaccount.google.com → Sécurité → Validation en 2 étapes</a></div>
+        </div>
+        <div style="display:flex; gap:12px; align-items:flex-start;">
+          <span style="min-width:24px; height:24px; border-radius:50%; background:var(--primary); color:white; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700;">2</span>
+          <div>Accédez directement aux mots de passe d'application :<br>
+          <a href="https://myaccount.google.com/apppasswords" target="_blank" style="color:var(--primary); font-weight:600;">myaccount.google.com/apppasswords</a>
+          <span style="color:var(--text-3)"> (n'apparaît que si la 2FA est activée)</span></div>
+        </div>
+        <div style="display:flex; gap:12px; align-items:flex-start;">
+          <span style="min-width:24px; height:24px; border-radius:50%; background:var(--primary); color:white; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700;">3</span>
+          <div>Dans le champ "Nom de l'application", tapez <strong>ContactPro</strong> → cliquez <strong>Créer</strong></div>
+        </div>
+        <div style="display:flex; gap:12px; align-items:flex-start;">
+          <span style="min-width:24px; height:24px; border-radius:50%; background:var(--primary); color:white; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700;">4</span>
+          <div>Copiez le code à <strong>16 caractères</strong> généré (ex: <code style="background:var(--border); padding:2px 6px; border-radius:4px; font-size:12px;">abcd efgh ijkl mnop</code>) et collez-le dans le champ ci-dessus</div>
+        </div>
+      </div>
+
+      <div style="margin-top:14px; padding:10px 14px; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); border-radius:8px; font-size:12px; color:var(--warning);">
+        <i class="bi bi-exclamation-triangle-fill" style="margin-right:6px;"></i>
+        <strong>Important :</strong> utilisez un <em>mot de passe d'application</em>, pas votre mot de passe Gmail habituel. Google bloque les connexions directes depuis 2022.
+      </div>
     </div>
 
     <div style="display:flex; gap:12px;">
