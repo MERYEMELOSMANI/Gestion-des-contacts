@@ -136,7 +136,11 @@
       <input class="search-input" name="q" id="si" value="{{ q }}" placeholder="Rechercher un contact..." autocomplete="off">
       {% if cat_filter %}<input type="hidden" name="categorie" value="{{ cat_filter }}">{% endif %}
     </form>
-    
+
+    <a href="{{ url_for('export_csv') }}" class="btn-secondary" style="display:inline-flex;align-items:center;gap:8px;padding:0 18px;height:44px;border-radius:12px;font-size:14px;font-weight:500;text-decoration:none;white-space:nowrap;" title="Télécharger tous les contacts en CSV">
+      <i class="bi bi-file-earmark-spreadsheet"></i> Export CSV
+    </a>
+
     <div class="filter-pills">
       <a href="{{ url_for('index', q=q) }}" class="pill {{ 'active' if not cat_filter else '' }}">Tous</a>
       <a href="{{ url_for('index', q=q, categorie='Favoris') }}" class="pill {{ 'active' if cat_filter=='Favoris' else '' }}" style="{% if cat_filter=='Favoris' %}background:var(--warning);border-color:var(--warning);{% endif %}"><i class="bi bi-star-fill" style="margin-right:4px;"></i>Favoris</a>

@@ -1,4 +1,5 @@
 import csv
+import datetime
 import hashlib
 import json
 import os
@@ -12,7 +13,7 @@ from email.mime.text import MIMEText
 from functools import wraps
 
 from flask import (Flask, flash, jsonify, redirect,
-                   render_template, request, session, url_for)
+                   render_template, request, send_file, session, url_for)
 
 app = Flask(__name__)
 app.jinja_env.filters['ord'] = ord
@@ -786,6 +787,101 @@ def delete_agenda(rdv_id):
         return jsonify({"success": True})
     finally:
         conn.close()
+
+
+# ── Export CSV ────────────────────────────────────────────────────────────────
+
+@app.route("/export-csv")
+@login_required
+def export_csv():
+    sync_csv()
+    return send_file(CSV_PATH, mimetype="text/csv", as_attachment=True,
+                     download_name="contacts.csv")
+
+
+# ── Chatbot Agenda ────────────────────────────────────────────────────────────
+
+@app.route("/api/agenda/chat", methods=["POST"])
+@login_required
+def agenda_chat():
+    data = request.get_json(silent=True) or {}
+    question = data.get("question", "").strip()
+    if not question:
+        return jsonify({"error": "Question vide"}), 400
+
+    conn = get_db()
+    try:
+        rows = conn.execute("""
+            SELECT r.date_rdv, r.heure_rdv, r.motif, c.nom, c.categorie
+            FROM rendez_vous r
+            JOIN contacts c ON c.id = r.contact_id
+            ORDER BY r.date_rdv, r.heure_rdv
+        """).fetchall()
+    finally:
+        conn.close()
+
+    today = datetime.date.today().isoformat()
+    if rows:
+        agenda_lines = "\n".join(
+            f"- {r['date_rdv']} à {r['heure_rdv']} : {r['nom']} ({r['categorie'] or 'N/A'}) — {r['motif'] or 'motif non précisé'}"
+            for r in rows
+        )
+    else:
+        agenda_lines = "Aucun rendez-vous planifié pour l'instant."
+
+    prompt = (
+        f"Tu es un assistant intelligent spécialisé dans la gestion d'agenda.\n"
+        f"Aujourd'hui : {today}.\n\n"
+        f"Rendez-vous planifiés :\n{agenda_lines}\n\n"
+        f"Question : {question}\n\n"
+        f"Réponds en français, de façon claire et concise (2-4 phrases max). "
+        f"Utilise les données ci-dessus pour répondre avec précision."
+    )
+
+    try:
+        payload = json.dumps({
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"temperature": 0.5, "maxOutputTokens": 300}
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            f"{GEMINI_URL}?key={GEMINI_API_KEY}",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+        text = result["candidates"][0]["content"]["parts"][0]["text"].strip()
+        return jsonify({"reply": text})
+    except Exception:
+        return _agenda_chat_fallback(question, rows, today)
+
+
+def _agenda_chat_fallback(question, rows, today):
+    q = question.lower()
+    total = len(rows)
+
+    if any(w in q for w in ["combien", "nombre", "total"]):
+        return jsonify({"reply": f"Il y a actuellement {total} rendez-vous planifié(s) dans l'agenda."})
+
+    if any(w in q for w in ["prochain", "suivant", "aujourd'hui", "aujourd hui", "demain"]):
+        futurs = [r for r in rows if r["date_rdv"] >= today]
+        if futurs:
+            r = futurs[0]
+            return jsonify({"reply": f"Le prochain RDV est le {r['date_rdv']} à {r['heure_rdv']} avec {r['nom']} ({r['motif'] or 'motif non précisé'})."})
+        return jsonify({"reply": "Aucun rendez-vous à venir trouvé dans l'agenda."})
+
+    if any(w in q for w in ["liste", "tous", "tout", "affiche", "montre"]):
+        if not rows:
+            return jsonify({"reply": "L'agenda est vide pour l'instant."})
+        resume = "; ".join(f"{r['date_rdv']} {r['heure_rdv']} — {r['nom']}" for r in rows[:5])
+        suffix = f" (et {total - 5} autres)" if total > 5 else ""
+        return jsonify({"reply": f"Voici les RDV : {resume}{suffix}."})
+
+    if total == 0:
+        return jsonify({"reply": "L'agenda est vide. Commencez par ajouter un rendez-vous."})
+
+    return jsonify({"reply": f"Votre agenda contient {total} rendez-vous. Posez-moi une question plus précise (prochain RDV, liste, nombre, etc.)."})
 
 
 if __name__ == "__main__":
