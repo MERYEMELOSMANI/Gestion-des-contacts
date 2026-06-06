@@ -1,0 +1,311 @@
+{% extends 'base.html' %}
+{% block title %}Planification — ContactBook Premium{% endblock %}
+{% block page_title %}Planification{% endblock %}
+
+{% block topbar_right %}
+<div class="cal-controls">
+  <button id="btn-today" class="btn-secondary">Aujourd'hui</button>
+  <div class="cal-nav">
+    <button id="btn-prev" class="icon-btn" title="Mois précédent"><i class="bi bi-chevron-left"></i></button>
+    <button id="btn-next" class="icon-btn" title="Mois suivant"><i class="bi bi-chevron-right"></i></button>
+  </div>
+  <h2 id="cal-month-year" class="cal-month"></h2>
+  <button class="btn-primary" id="btn-add-event" style="margin-left: 16px;">
+    <i class="bi bi-calendar-plus"></i> Nouveau RDV
+  </button>
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+  .cal-controls { display: flex; align-items: center; gap: 12px; }
+  .cal-nav { display: flex; gap: 4px; }
+  .icon-btn {
+    width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text-2); display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all var(--transition);
+  }
+  .icon-btn:hover { background: var(--surface-hover); color: var(--primary); border-color: var(--primary-light); }
+  .cal-month { font-size: 18px; font-weight: 600; font-family: 'Poppins', sans-serif; color: var(--text); min-width: 140px; text-align: center; }
+
+  .calendar-card {
+    background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm); display: flex; flex-direction: column; height: calc(100vh - 160px); min-height: 600px;
+    overflow: hidden;
+  }
+  
+  .cal-header {
+    display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px solid var(--border);
+    background: var(--surface-hover);
+  }
+  .cal-header-cell {
+    padding: 16px 0; text-align: center; font-size: 13px; font-weight: 600;
+    color: var(--text-2); text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  
+  .cal-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: 1fr;
+    flex: 1; background: var(--border-light); gap: 1px;
+  }
+  .cal-cell {
+    background: var(--surface); padding: 8px; display: flex; flex-direction: column;
+    cursor: pointer; transition: background var(--transition);
+  }
+  .cal-cell:hover { background: var(--surface-hover); }
+  .cal-cell.other-month { background: var(--surface-hover); opacity: 0.6; }
+  
+  .day-num {
+    width: 28px; height: 28px; border-radius: 8px; margin: 0 auto 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 600; color: var(--text-2); pointer-events: none;
+  }
+  .cal-cell.today .day-num { background: var(--primary); color: white; box-shadow: 0 2px 8px rgba(79,70,229,0.3); }
+
+  .events-container { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-right: 2px; }
+  .events-container::-webkit-scrollbar { width: 4px; }
+  .events-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  
+  .event-chip {
+    background: var(--primary-light); color: var(--primary-text); border-radius: 6px; padding: 4px 8px;
+    font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; border: 1px solid rgba(99,102,241,0.2);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .event-chip:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); filter: brightness(0.95); }
+  .event-time { opacity: 0.8; font-weight: 500; font-size: 11px; }
+
+  /* Popover */
+  .event-popover {
+    position: absolute; background: var(--surface); border-radius: 16px; width: 320px;
+    box-shadow: var(--shadow-lg); z-index: 500; display: none; border: 1px solid var(--border);
+    overflow: hidden; animation: popIn 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  @keyframes popIn { from{opacity:0;transform:scale(0.95) translateY(10px)} to{opacity:1;transform:scale(1) translateY(0)} }
+  .popover-header { padding: 16px 20px; display: flex; justify-content: flex-end; gap: 8px; border-bottom: 1px solid var(--border-light); background: var(--surface-hover); }
+  .pop-btn { width: 32px; height: 32px; border-radius: 8px; border: none; background: transparent; color: var(--text-3); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all var(--transition); }
+  .pop-btn:hover { background: var(--surface); color: var(--text); }
+  .pop-btn.del:hover { background: var(--danger); color: white; }
+  .popover-body { padding: 20px; }
+  .pop-title { font-size: 18px; font-weight: 600; color: var(--text); margin-bottom: 16px; font-family: 'Poppins', sans-serif; }
+  .pop-row { display: flex; gap: 12px; margin-bottom: 12px; align-items: center; }
+  .pop-row i { color: var(--primary); font-size: 18px; }
+  .pop-text { font-size: 14px; color: var(--text-2); font-weight: 500; }
+  
+  @media(max-width: 768px) {
+    .cal-controls { flex-wrap: wrap; justify-content: space-between; }
+    .cal-month { width: 100%; text-align: left; margin: 10px 0; }
+    .calendar-card { height: 80vh; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="calendar-card">
+  <div class="cal-header">
+    <div class="cal-header-cell">Lun</div><div class="cal-header-cell">Mar</div>
+    <div class="cal-header-cell">Mer</div><div class="cal-header-cell">Jeu</div>
+    <div class="cal-header-cell">Ven</div><div class="cal-header-cell">Sam</div>
+    <div class="cal-header-cell">Dim</div>
+  </div>
+  <div class="cal-grid" id="calendar-grid"></div>
+</div>
+
+<!-- Modal Rendez-vous -->
+<div class="modal-backdrop" id="event-modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 class="modal-title">Nouveau Rendez-vous</h3>
+      <button class="btn-close" id="btn-close-modal"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="input-group">
+        <label class="input-label">Motif du rendez-vous</label>
+        <i class="bi bi-card-text input-icon"></i>
+        <input type="text" id="ev-motif" class="input-field" placeholder="Ex: Consultation suivi">
+      </div>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div class="input-group">
+          <label class="input-label">Date *</label>
+          <i class="bi bi-calendar input-icon"></i>
+          <input type="date" id="ev-date" class="input-field" required>
+        </div>
+        <div class="input-group">
+          <label class="input-label">Heure *</label>
+          <i class="bi bi-clock input-icon"></i>
+          <input type="time" id="ev-heure" class="input-field" required>
+        </div>
+      </div>
+
+      <div class="input-group" style="margin-bottom:0;">
+        <label class="input-label">Contact associé *</label>
+        <i class="bi bi-person input-icon"></i>
+        <select id="ev-contact" class="input-field" style="padding-left: 46px;" required>
+          <option value="" disabled selected>Sélectionner un contact</option>
+          {% for c in contacts %}
+          <option value="{{ c.id }}">{{ c.nom }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary" id="btn-save-event">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Popover Détails -->
+<div id="event-popover" class="event-popover">
+  <div class="popover-header">
+    <button class="pop-btn del" id="btn-del-event" title="Supprimer"><i class="bi bi-trash3"></i></button>
+    <button class="pop-btn" id="btn-close-popover" title="Fermer"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="popover-body">
+    <div class="pop-title" id="pop-motif"></div>
+    <div class="pop-row">
+      <i class="bi bi-calendar-event"></i>
+      <div class="pop-text" id="pop-datetime"></div>
+    </div>
+    <div class="pop-row">
+      <i class="bi bi-person-badge"></i>
+      <div class="pop-text" id="pop-contact"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+  let currentDate = new Date();
+  let events = [];
+  
+  const grid = document.getElementById('calendar-grid');
+  const monthYearLbl = document.getElementById('cal-month-year');
+  const modal = document.getElementById('event-modal');
+  const popover = document.getElementById('event-popover');
+  
+  async function fetchEvents() {
+    try {
+      const res = await fetch('{{ url_for("get_agenda") }}');
+      events = await res.json();
+      renderCalendar();
+    } catch (e) { console.error(e); }
+  }
+
+  function renderCalendar() {
+    grid.innerHTML = '';
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    
+    monthYearLbl.textContent = `${monthNames[month]} ${year}`;
+    
+    const firstDay = new Date(year, month, 1);
+    let startDayIdx = firstDay.getDay() - 1;
+    if (startDayIdx === -1) startDayIdx = 6;
+    
+    const startDate = new Date(year, month, 1 - startDayIdx);
+    const todayStr = new Date().toISOString().split('T')[0];
+    
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(startDate);
+      d.setDate(startDate.getDate() + i);
+      
+      const isCurrentMonth = d.getMonth() === month;
+      const dateStr = d.toISOString().split('T')[0];
+      const isToday = dateStr === todayStr;
+      
+      const cell = document.createElement('div');
+      cell.className = `cal-cell ${isCurrentMonth ? '' : 'other-month'} ${isToday ? 'today' : ''}`;
+      
+      const numDiv = document.createElement('div');
+      numDiv.className = 'day-num';
+      numDiv.textContent = d.getDate();
+      cell.appendChild(numDiv);
+      
+      const evCont = document.createElement('div');
+      evCont.className = 'events-container';
+      
+      const dayEvents = events.filter(e => e.date === dateStr).sort((a, b) => a.heure.localeCompare(b.heure));
+      dayEvents.forEach(ev => {
+        const evDiv = document.createElement('div');
+        evDiv.className = 'event-chip';
+        evDiv.innerHTML = `<span class="event-time">${ev.heure}</span> <span>${ev.motif || ev.nom}</span>`;
+        evDiv.addEventListener('click', (e) => { e.stopPropagation(); showPopover(ev, evDiv); });
+        evCont.appendChild(evDiv);
+      });
+      
+      cell.appendChild(evCont);
+      cell.addEventListener('click', () => openModal(dateStr));
+      grid.appendChild(cell);
+      
+      if (i >= 28 && d.getMonth() !== month && d.getDay() === 0) break;
+    }
+  }
+
+  document.getElementById('btn-today').onclick = () => { currentDate = new Date(); renderCalendar(); };
+  document.getElementById('btn-prev').onclick = () => { currentDate.setMonth(currentDate.getMonth() - 1); renderCalendar(); };
+  document.getElementById('btn-next').onclick = () => { currentDate.setMonth(currentDate.getMonth() + 1); renderCalendar(); };
+
+  const inpMotif = document.getElementById('ev-motif');
+  const inpDate = document.getElementById('ev-date');
+  const inpHeure = document.getElementById('ev-heure');
+  const inpContact = document.getElementById('ev-contact');
+
+  document.getElementById('btn-add-event').onclick = () => openModal();
+  document.getElementById('btn-close-modal').onclick = () => modal.classList.remove('show');
+
+  function openModal(dateStr = '') {
+    inpMotif.value = '';
+    inpDate.value = dateStr || new Date().toISOString().split('T')[0];
+    inpHeure.value = '09:00';
+    inpContact.value = '';
+    modal.classList.add('show');
+    setTimeout(() => inpMotif.focus(), 100);
+  }
+
+  document.getElementById('btn-save-event').onclick = async () => {
+    if(!inpContact.value || !inpDate.value || !inpHeure.value) { alert("Champs obligatoires manquants."); return; }
+    const payload = { contact_id: inpContact.value, date_rdv: inpDate.value, heure_rdv: inpHeure.value, motif: inpMotif.value };
+    try {
+      const res = await fetch('{{ url_for("add_agenda") }}', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+      const data = await res.json();
+      if(data.error) alert(data.error);
+      else { modal.classList.remove('show'); fetchEvents(); }
+    } catch(e) { console.error(e); }
+  };
+
+  let activeEventId = null;
+  function showPopover(ev, element) {
+    activeEventId = ev.id;
+    document.getElementById('pop-motif').textContent = ev.motif || "Rendez-vous";
+    const d = new Date(ev.date);
+    document.getElementById('pop-datetime').textContent = `${d.getDate()} ${monthNames[d.getMonth()]} ${d.getFullYear()} à ${ev.heure}`;
+    document.getElementById('pop-contact').textContent = ev.nom;
+    
+    popover.style.display = 'block';
+    const rect = element.getBoundingClientRect();
+    let top = rect.top + window.scrollY - 10;
+    let left = rect.right + window.scrollX + 10;
+    if (left + 320 > window.innerWidth) left = rect.left + window.scrollX - 330;
+    if (top + 150 > window.innerHeight) top = window.innerHeight - 180;
+    popover.style.top = top + 'px';
+    popover.style.left = left + 'px';
+  }
+
+  document.getElementById('btn-close-popover').onclick = () => popover.style.display = 'none';
+  document.addEventListener('click', (e) => { if (!popover.contains(e.target) && !e.target.closest('.event-chip')) popover.style.display = 'none'; });
+
+  document.getElementById('btn-del-event').onclick = async () => {
+    if(!activeEventId || !confirm("Supprimer cet événement ?")) return;
+    try {
+      await fetch(`/api/agenda/${activeEventId}`, { method: 'DELETE' });
+      popover.style.display = 'none';
+      fetchEvents();
+    } catch(e) { console.error(e); }
+  };
+
+  fetchEvents();
+</script>
+{% endblock %}

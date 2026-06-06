@@ -1,220 +1,229 @@
 {% extends 'base.html' %}
-{% block title %}Message à {{ contact['nom'] }} — ContactBook Pro{% endblock %}
+{% block title %}Message à {{ contact['nom'] }} — ContactBook Premium{% endblock %}
 {% block page_title %}
-<i class="bi bi-envelope-fill"></i> Envoyer un message
+<i class="bi bi-envelope-paper"></i> Envoyer un message
+{% endblock %}
+
+{% block styles %}
+<style>
+  .back-link {
+    display: inline-flex; align-items: center; gap: 8px; color: var(--text-2); text-decoration: none;
+    font-size: 15px; font-weight: 500; margin-bottom: 24px; transition: color var(--transition);
+  }
+  .back-link:hover { color: var(--primary); }
+  
+  .tpl-btn {
+    display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px;
+    border-radius: 12px; border: 1px solid var(--border); background: var(--surface);
+    color: var(--text-2); font-family: inherit; font-size: 14px; font-weight: 500;
+    cursor: pointer; transition: all var(--transition);
+  }
+  .tpl-btn:hover { border-color: var(--primary-light); color: var(--primary); background: var(--primary-light); }
+  
+  .ai-box {
+    border: 1px solid var(--primary-light); border-radius: var(--radius); background: linear-gradient(135deg, rgba(99,102,241,0.05), rgba(99,102,241,0.1));
+    padding: 24px; margin-bottom: 32px; box-shadow: inset 0 2px 4px rgba(255,255,255,0.5);
+  }
+</style>
 {% endblock %}
 
 {% block content %}
-<div style="max-width:640px;">
+
+<div style="max-width: 768px; margin: 0 auto;">
 
   <a href="{{ url_for('index') }}" class="back-link">
-    <i class="bi bi-arrow-left"></i> Retour aux contacts
+    <i class="bi bi-arrow-left"></i> Retour au répertoire
   </a>
 
   {# Recipient card #}
-  <div style="display:flex;align-items:center;gap:14px;padding:14px 18px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:18px;box-shadow:var(--sh-sm);">
-    <div style="width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:16px;flex-shrink:0;">
-      {{ contact['nom'][0]|upper }}
+  <div class="card" style="display:flex; align-items:center; gap:20px; padding:20px 24px; margin-bottom:24px;">
+    {% set ini = contact['nom'][0]|upper %}
+    {% set colors = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899', '#f43f5e'] %}
+    {% set color = colors[(ini|ord) % colors|length] %}
+    
+    <div style="width:56px; height:56px; border-radius:16px; background:linear-gradient(135deg, {{ color }}, {{ color }}dd); display:flex; align-items:center; justify-content:center; color:white; font-size:24px; font-weight:600; box-shadow:0 4px 10px {{ color }}40;">
+      {{ ini }}
     </div>
-    <div style="flex:1;min-width:0;">
-      <div style="font-weight:700;font-size:14px;color:var(--text);">{{ contact['nom'] }}</div>
-      <div style="font-size:12.5px;color:var(--text-3);margin-top:2px;">
-        {% if contact['email'] %}<span style="margin-right:12px;"><i class="bi bi-envelope" style="font-size:11px;opacity:.6;margin-right:3px;"></i>{{ contact['email'] }}</span>{% endif %}
-        {% if contact['telephone'] %}<span><i class="bi bi-telephone" style="font-size:11px;opacity:.6;margin-right:3px;"></i>{{ contact['telephone'] }}</span>{% endif %}
+    
+    <div style="flex:1; min-width:0;">
+      <div style="font-weight:600; font-size:18px; color:var(--text); font-family:'Poppins', sans-serif;">{{ contact['nom'] }}</div>
+      <div style="font-size:14px; color:var(--text-3); margin-top:4px; display:flex; gap:16px; flex-wrap:wrap;">
+        {% if contact['email'] %}<span><i class="bi bi-envelope"></i> {{ contact['email'] }}</span>{% endif %}
+        {% if contact['telephone'] %}<span><i class="bi bi-telephone"></i> {{ contact['telephone'] }}</span>{% endif %}
       </div>
     </div>
     {% if contact['categorie'] %}
-    <span style="font-size:11px;font-weight:600;padding:3px 9px;border-radius:99px;background:var(--pr-pale);color:var(--pr);border:1px solid #c7d2fe;flex-shrink:0;">
+    <span style="font-size:13px; font-weight:600; padding:6px 12px; border-radius:12px; background:var(--surface-hover); color:var(--text-2); border:1px solid var(--border);">
       {{ contact['categorie'] }}
     </span>
     {% endif %}
   </div>
 
   {# Main form panel #}
-  <div class="panel">
-
-    <div class="panel-head">
-      <div style="width:32px;height:32px;border-radius:8px;background:var(--pr-pale);display:flex;align-items:center;justify-content:center;color:var(--pr);font-size:14px;flex-shrink:0;">
-        <i class="bi bi-send-fill"></i>
-      </div>
-      <div class="panel-title">Composer le message</div>
+  <div class="card">
+    <div style="padding: 24px 32px; border-bottom: 1px solid var(--border-light); background: var(--surface-hover);">
+      <h3 style="font-size: 18px; color: var(--text); font-family: 'Poppins', sans-serif; display: flex; align-items: center; gap: 12px;">
+        <div style="width:36px; height:36px; border-radius:10px; background:var(--primary-light); color:var(--primary); display:flex; align-items:center; justify-content:center; font-size:16px;">
+          <i class="bi bi-vector-pen"></i>
+        </div>
+        Composer le message
+      </h3>
     </div>
 
-    <div style="padding:22px;">
+    <div style="padding: 32px;">
       <form method="post" id="emailForm">
 
-        <div style="margin-bottom:18px;">
-          <label class="field-label">Sujet <span style="color:var(--danger);">*</span></label>
-          <div class="inp-wrap">
-            <i class="bi bi-chat-text inp-icon"></i>
-            <input id="sujet" name="sujet" class="inp" required
-                   placeholder="Objet de votre message…"
-                   value="{{ request.form.get('sujet', '') }}">
-          </div>
+        <div id="sujet-wrap" class="input-group">
+          <label class="input-label">Sujet <span style="color:var(--danger);">*</span></label>
+          <i class="bi bi-chat-text input-icon"></i>
+          <input id="sujet" name="sujet" class="input-field" required placeholder="Objet de votre message…" value="{{ request.form.get('sujet', '') }}">
         </div>
 
-        <div style="margin-bottom:18px;">
-          <label class="field-label">Message <span style="color:var(--danger);">*</span></label>
-          <div class="inp-wrap">
-            <i class="bi bi-text-left inp-icon" style="top:14px;transform:none;"></i>
-            <textarea id="corps" name="corps" class="inp" rows="7" required
-                      placeholder="Bonjour {{ contact['nom'] }},&#10;&#10;…">{{ request.form.get('corps', '') }}</textarea>
-          </div>
+        <div class="input-group">
+          <label class="input-label">Message <span style="color:var(--danger);">*</span></label>
+          <i class="bi bi-text-left input-icon" style="top:14px;"></i>
+          <textarea id="corps" name="corps" class="input-field" style="height: auto; padding-top: 14px; min-height: 200px; resize: vertical;" required placeholder="Bonjour {{ contact['nom'] }},&#10;&#10;…">{{ request.form.get('corps', '') }}</textarea>
         </div>
 
         {# Quick templates #}
-        <div style="margin-bottom:22px;">
-          <div class="field-label" style="margin-bottom:8px;color:var(--text-3);">Modèles rapides</div>
-          <div style="display:flex;flex-wrap:wrap;gap:7px;">
-            <button type="button" class="tpl-btn"
-              data-s="Confirmation de rendez-vous"
-              data-c="Bonjour {{ contact['nom'] }},&#10;&#10;Nous confirmons votre rendez-vous prévu. Merci de nous contacter en cas d'empêchement.&#10;&#10;Cordialement">
+        <div style="margin-bottom:32px;">
+          <label class="input-label">Modèles rapides</label>
+          <div style="display:flex; flex-wrap:wrap; gap:10px;">
+            <button type="button" class="tpl-btn" data-s="Confirmation de rendez-vous" data-c="Bonjour {{ contact['nom'] }},&#10;&#10;Nous confirmons votre rendez-vous prévu. Merci de nous contacter en cas d'empêchement.&#10;&#10;Cordialement">
               <i class="bi bi-calendar-check"></i> Rendez-vous
             </button>
-            <button type="button" class="tpl-btn"
-              data-s="Demande de résultats"
-              data-c="Bonjour {{ contact['nom'] }},&#10;&#10;Pourriez-vous nous faire parvenir les résultats dès que possible ?&#10;&#10;Merci d'avance,&#10;Cordialement">
+            <button type="button" class="tpl-btn" data-s="Demande de résultats" data-c="Bonjour {{ contact['nom'] }},&#10;&#10;Pourriez-vous nous faire parvenir les résultats dès que possible ?&#10;&#10;Merci d'avance,&#10;Cordialement">
               <i class="bi bi-file-earmark-text"></i> Résultats
             </button>
-            <button type="button" class="tpl-btn"
-              data-s="Information importante"
-              data-c="Bonjour {{ contact['nom'] }},&#10;&#10;Nous souhaitons vous informer de :&#10;&#10;Cordialement">
+            <button type="button" class="tpl-btn" data-s="Information importante" data-c="Bonjour {{ contact['nom'] }},&#10;&#10;Nous souhaitons vous informer de :&#10;&#10;Cordialement">
               <i class="bi bi-info-circle"></i> Information
             </button>
           </div>
         </div>
 
         {# AI Generation section #}
-        <div style="border:1.5px solid rgba(99,102,241,.3);border-radius:var(--r-lg);background:linear-gradient(135deg,rgba(99,102,241,.04),rgba(139,92,246,.04));padding:18px;margin-bottom:22px;">
-
-          <div style="display:flex;align-items:center;gap:9px;margin-bottom:14px;">
-            <div style="width:32px;height:32px;border-radius:8px;background:var(--grad);display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;flex-shrink:0;box-shadow:0 3px 10px rgba(99,102,241,.35);">
+        <div class="ai-box">
+          <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+            <div style="width:40px; height:40px; border-radius:12px; background:linear-gradient(135deg, #6366f1, #a855f7); color:white; display:flex; align-items:center; justify-content:center; font-size:18px;">
               <i class="bi bi-stars"></i>
             </div>
             <div>
-              <div style="font-size:13.5px;font-weight:700;color:var(--pr);">Générer avec l'IA Gemini</div>
-              <div style="font-size:11.5px;color:var(--text-4);">Message personnalisé en un clic</div>
+              <div style="font-size:16px; font-weight:600; color:var(--text); font-family:'Poppins', sans-serif;">Générer avec l'IA Gemini</div>
+              <div style="font-size:13px; color:var(--text-3);">Message personnalisé selon le contexte</div>
             </div>
           </div>
 
-          <div style="display:flex;gap:8px;margin-bottom:12px;">
-            <label style="flex:1;display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:var(--r-sm);border:1.5px solid var(--border-2);cursor:pointer;transition:border .15s,background .15s;background:var(--card);" id="lbl-email">
-              <input type="radio" name="ia_type" id="ia_email" value="email" checked
-                     onchange="toggleIAType()" style="display:none;">
-              <div style="width:14px;height:14px;border-radius:50%;border:2px solid #6366f1;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                <div id="dot-email" style="width:6px;height:6px;border-radius:50%;background:#6366f1;"></div>
-              </div>
-              <span style="font-size:13px;font-weight:600;color:var(--text-2);">
-                <i class="bi bi-envelope" style="margin-right:4px;color:#6366f1;"></i> Email
-              </span>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:16px;">
+            <label id="lbl-email" style="display:flex; align-items:center; justify-content:center; gap:8px; padding:12px; border-radius:12px; border:2px solid #6366f1; background:var(--surface); cursor:pointer; transition:all var(--transition);">
+              <input type="radio" name="ia_type" id="ia_email" value="email" checked onchange="toggleIAType()" style="display:none;">
+              <i class="bi bi-envelope" style="color:#6366f1; font-size:18px;"></i>
+              <span style="font-size:14px; font-weight:600; color:var(--text);">Email</span>
             </label>
-            <label style="flex:1;display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:var(--r-sm);border:1.5px solid var(--border-2);cursor:pointer;transition:border .15s,background .15s;background:var(--card);" id="lbl-wa">
-              <input type="radio" name="ia_type" id="ia_whatsapp" value="whatsapp"
-                     onchange="toggleIAType()" style="display:none;">
-              <div style="width:14px;height:14px;border-radius:50%;border:2px solid #94a3b8;display:flex;align-items:center;justify-content:center;flex-shrink:0;" id="circle-wa">
-                <div id="dot-wa" style="width:6px;height:6px;border-radius:50%;background:transparent;"></div>
-              </div>
-              <span style="font-size:13px;font-weight:600;color:var(--text-2);">
-                <i class="bi bi-whatsapp" style="margin-right:4px;color:#25d366;"></i> WhatsApp
-              </span>
+            <label id="lbl-wa" style="display:flex; align-items:center; justify-content:center; gap:8px; padding:12px; border-radius:12px; border:2px solid var(--border); background:var(--surface); cursor:pointer; transition:all var(--transition);">
+              <input type="radio" name="ia_type" id="ia_whatsapp" value="whatsapp" onchange="toggleIAType()" style="display:none;">
+              <i class="bi bi-whatsapp" style="color:#10b981; font-size:18px;"></i>
+              <span style="font-size:14px; font-weight:600; color:var(--text);">WhatsApp</span>
             </label>
           </div>
 
-          <div style="margin-bottom:12px;">
-            <div class="inp-wrap">
-              <i class="bi bi-lightbulb inp-icon"></i>
-              <input type="text" id="ia_context" class="inp" style="height:38px;"
-                     placeholder="Contexte : confirmation RDV demain 10h, relance résultats…">
-            </div>
+          <div class="input-group">
+            <i class="bi bi-lightbulb input-icon" style="top:12px;"></i>
+            <input type="text" id="ia_context" class="input-field" style="height:44px;" placeholder="Contexte : confirmation RDV demain 10h...">
           </div>
 
-          <button type="button" id="btnGen" class="btn-pr" style="width:100%;justify-content:center;">
-            <span id="btnGenTxt"><i class="bi bi-stars"></i> Générer le message</span>
-            <span id="btnGenLoad" style="display:none;align-items:center;gap:8px;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="animation:spin .7s linear infinite;">
-                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-              </svg>
-              Génération en cours…
+          <button type="button" id="btnGen" class="btn-primary" style="width:100%; display:flex; align-items:center; justify-content:center; gap:8px; height:44px; background:linear-gradient(135deg, #6366f1, #a855f7); border:none; font-size:15px;">
+            <span id="btnGenTxt"><i class="bi bi-stars"></i> Générer le brouillon</span>
+            <span id="btnGenLoad" style="display:none; align-items:center; gap:8px;">
+              <i class="bi bi-arrow-repeat" style="animation:spin 1s linear infinite;"></i> Génération en cours…
             </span>
           </button>
-          <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
-
-          <div id="ia_warn" style="display:none;margin-top:10px;padding:8px 11px;border-radius:7px;font-size:12.5px;font-weight:500;background:#fffbeb;border:1px solid #fcd34d;color:#92400e;">
-            <i class="bi bi-exclamation-triangle" style="margin-right:5px;"></i>
-            <span id="ia_warn_msg"></span>
+          
+          <div id="ia_warn" style="display:none; margin-top:16px; padding:12px 16px; border-radius:10px; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.2); color:#b45309; font-size:13px; font-weight:500;">
+            <i class="bi bi-exclamation-triangle" style="margin-right:8px;"></i><span id="ia_warn_msg"></span>
           </div>
         </div>
 
-        <div style="display:flex;gap:10px;padding-top:18px;border-top:1px solid var(--border);">
-          <button type="submit" class="btn-pr">
-            <i class="bi bi-send-fill"></i> Envoyer
+        <div style="display:flex; justify-content:flex-end; gap:16px; padding-top:24px; border-top:1px solid var(--border-light);">
+          <a href="{{ url_for('index') }}" class="btn-secondary">Annuler</a>
+          <button type="submit" class="btn-primary" id="btn-submit" style="display:flex; align-items:center; gap:8px; font-size:15px; padding:12px 32px;">
+            <i class="bi bi-send-fill" id="btn-submit-icon"></i> <span id="btn-submit-text">Envoyer l'Email</span>
           </button>
-          <a href="{{ url_for('index') }}" class="btn-ghost">Annuler</a>
         </div>
 
       </form>
     </div>
   </div>
 
-  <div style="margin-top:12px;padding:11px 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:var(--r);display:flex;gap:9px;align-items:flex-start;">
-    <i class="bi bi-info-circle" style="color:#b45309;margin-top:1px;flex-shrink:0;"></i>
-    <span style="font-size:12.5px;color:#92400e;line-height:1.55;">
-      Pour activer l'envoi réel, configurez les variables d'environnement
-      <code style="background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;">SMTP_EMAIL</code> et
-      <code style="background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;">SMTP_PASSWORD</code>.
-    </span>
-  </div>
-
 </div>
 {% endblock %}
 
 {% block scripts %}
-<style>
-.tpl-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: var(--r-sm);
-  border: 1.5px solid var(--border-2);
-  background: var(--card);
-  color: var(--text-3);
-  font-family: inherit;
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all .12s;
-}
-.tpl-btn:hover {
-  border-color: var(--pr);
-  color: var(--pr);
-  background: var(--pr-pale);
-}
-</style>
 <script>
 document.querySelectorAll('.tpl-btn').forEach(btn=>{
   btn.addEventListener('click',function(){
-    document.getElementById('sujet').value = this.dataset.s;
+    const s = document.getElementById('sujet');
+    if (s) s.value = this.dataset.s;
     document.getElementById('corps').value = this.dataset.c.replace(/\\n/g,'\n');
   });
 });
 
 function toggleIAType(){
   const isEmail = document.getElementById('ia_email').checked;
-  document.getElementById('lbl-email').style.borderColor = isEmail ? '#6366f1' : 'var(--border-2)';
-  document.getElementById('lbl-wa').style.borderColor    = isEmail ? 'var(--border-2)' : '#25d366';
-  document.getElementById('dot-email').style.background = isEmail ? '#6366f1' : 'transparent';
-  document.getElementById('dot-wa').style.background    = isEmail ? 'transparent' : '#25d366';
-  document.getElementById('circle-wa').style.borderColor= isEmail ? '#94a3b8' : '#25d366';
+  const isWa = document.getElementById('ia_whatsapp').checked;
+  
+  document.getElementById('lbl-email').style.borderColor = isEmail ? '#6366f1' : 'var(--border)';
+  document.getElementById('lbl-wa').style.borderColor = isWa ? '#10b981' : 'var(--border)';
+  
+  const sw = document.getElementById('sujet-wrap');
+  sw.style.display = isWa ? 'none' : 'block';
+  document.getElementById('sujet').required = isEmail;
+  
+  const btnText = document.getElementById('btn-submit-text');
+  const btnIcon = document.getElementById('btn-submit-icon');
+  const btn = document.getElementById('btn-submit');
+  
+  if (isWa) {
+    btnText.textContent = "Ouvrir WhatsApp";
+    btnIcon.className = "bi bi-whatsapp";
+    btn.style.background = "#10b981";
+  } else {
+    btnText.textContent = "Envoyer l'Email";
+    btnIcon.className = "bi bi-send-fill";
+    btn.style.background = "var(--primary)";
+  }
 }
 
+document.getElementById('emailForm').addEventListener('submit', async function(e) {
+  const isWa = document.getElementById('ia_whatsapp').checked;
+  if (isWa) {
+    e.preventDefault();
+    const corps = document.getElementById('corps').value;
+    const phone = "{{ contact['telephone']|default('') }}".replace(/\+/g, '').replace(/\s/g, '');
+    
+    if (!phone) {
+      alert("Ce contact n'a pas de numéro de téléphone enregistré.");
+      return;
+    }
+    
+    try {
+      await fetch('/api/history/add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ contact_id: {{ contact['id'] }}, type: 'whatsapp', msg: corps })
+      });
+    } catch(err) { console.error(err); }
+    
+    window.location.href = `https://wa.me/${phone}?text=${encodeURIComponent(corps)}`;
+  }
+});
+
 document.getElementById('btnGen').addEventListener('click', async function(){
-  const btnTxt  = document.getElementById('btnGenTxt');
+  const btnTxt = document.getElementById('btnGenTxt');
   const btnLoad = document.getElementById('btnGenLoad');
-  const warn    = document.getElementById('ia_warn');
+  const warn = document.getElementById('ia_warn');
   const warnMsg = document.getElementById('ia_warn_msg');
-  const type    = document.querySelector('input[name="ia_type"]:checked').value;
-  const ctx     = document.getElementById('ia_context').value.trim();
+  const type = document.querySelector('input[name="ia_type"]:checked').value;
+  const ctx = document.getElementById('ia_context').value.trim();
 
   this.disabled = true;
   btnTxt.style.display = 'none';
@@ -231,37 +240,24 @@ document.getElementById('btnGen').addEventListener('click', async function(){
 
     if(d.error){
       warnMsg.textContent = d.error;
-      warn.style.background = '#fff1f2';
-      warn.style.borderColor = '#fecaca';
-      warn.style.color = '#991b1b';
-      warn.style.display = 'flex';
+      warn.style.display = 'block';
     } else if(type==='email'){
       if(d.sujet) document.getElementById('sujet').value = d.sujet;
       if(d.corps) document.getElementById('corps').value = d.corps;
       if(d.fallback){
-        warnMsg.textContent = 'Gemini indisponible — modèle de secours utilisé. Vous pouvez modifier le texte.';
-        warn.style.background = '#fffbeb';
-        warn.style.borderColor = '#fcd34d';
-        warn.style.color = '#92400e';
-        warn.style.display = 'flex';
+        warnMsg.textContent = 'IA indisponible — Modèle de secours utilisé.';
+        warn.style.display = 'block';
       }
     } else {
       if(d.message) document.getElementById('corps').value = d.message;
-      document.getElementById('sujet').value = 'Message WhatsApp — {{ contact["nom"] }}';
       if(d.fallback){
-        warnMsg.textContent = 'Gemini indisponible — modèle de secours utilisé.';
-        warn.style.background = '#fffbeb';
-        warn.style.borderColor = '#fcd34d';
-        warn.style.color = '#92400e';
-        warn.style.display = 'flex';
+        warnMsg.textContent = 'IA indisponible — Modèle de secours utilisé.';
+        warn.style.display = 'block';
       }
     }
   } catch(e){
     warnMsg.textContent = 'Erreur réseau : ' + e.message;
-    warn.style.background = '#fff1f2';
-    warn.style.borderColor = '#fecaca';
-    warn.style.color = '#991b1b';
-    warn.style.display = 'flex';
+    warn.style.display = 'block';
   } finally {
     this.disabled = false;
     btnTxt.style.display = 'flex';
@@ -269,4 +265,5 @@ document.getElementById('btnGen').addEventListener('click', async function(){
   }
 });
 </script>
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 {% endblock %}

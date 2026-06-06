@@ -15,6 +15,7 @@ from flask import (Flask, flash, jsonify, redirect,
                    render_template, request, session, url_for)
 
 app = Flask(__name__)
+app.jinja_env.filters['ord'] = ord
 app.secret_key = "gestion-contacts-secret-key-2024"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -39,7 +40,8 @@ _CONTACT_SELECT = """
            CASE WHEN entreprise = 'N/A' THEN '' ELSE IFNULL(entreprise, '') END AS entreprise,
            IFNULL(categorie, 'Client') AS categorie,
            IFNULL(adresse,   '')       AS adresse,
-           IFNULL(fonction,  '')       AS fonction
+           IFNULL(fonction,  '')       AS fonction,
+           IFNULL(is_favorite, 0)      AS is_favorite
     FROM contacts
 """
 
@@ -177,8 +179,11 @@ def index():
             )
             params.extend([p, p, p, p, p, p])
         if cat_filter:
-            conditions.append("categorie = ?")
-            params.append(cat_filter)
+            if cat_filter == 'Favoris':
+                conditions.append("is_favorite = 1")
+            else:
+                conditions.append("categorie = ?")
+                params.append(cat_filter)
         if conditions:
             base_sql += " WHERE " + " AND ".join(conditions)
         base_sql += " ORDER BY nom"
@@ -300,6 +305,26 @@ def delete_contact(contact_id):
     return redirect(url_for("index"))
 
 
+# ── Favoris ───────────────────────────────────────────────────────────────────
+
+@app.route("/toggle_favorite/<int:contact_id>", methods=["POST"])
+@login_required
+def toggle_favorite(contact_id):
+    conn = get_db()
+    try:
+        contact = conn.execute("SELECT nom, IFNULL(is_favorite, 0) as is_favorite FROM contacts WHERE id = ?", (contact_id,)).fetchone()
+        if contact:
+            new_status = 0 if contact["is_favorite"] else 1
+            conn.execute("UPDATE contacts SET is_favorite = ? WHERE id = ?", (new_status, contact_id))
+            conn.commit()
+            status_text = "ajouté aux favoris" if new_status else "retiré des favoris"
+            flash(f"Contact « {contact['nom']} » {status_text}.", "success")
+        else:
+            flash("Contact introuvable.", "error")
+    finally:
+        conn.close()
+    return redirect(url_for("index"))
+
 # ── Partie 7 : Envoi d'email ──────────────────────────────────────────────────
 
 @app.route("/send-email/<int:contact_id>", methods=["GET", "POST"])
@@ -332,9 +357,26 @@ def send_email(contact_id):
             msg.attach(MIMEText(corps, "plain", "utf-8"))
             msg.attach(MIMEText(f"<p>{corps_html}</p>", "html", "utf-8"))
 
-            with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-                server.login(SMTP_EMAIL, SMTP_PASSWORD)
-                server.sendmail(SMTP_EMAIL, contact["email"], msg.as_string())
+            if SMTP_EMAIL == "votre.email@gmail.com":
+                # Mock email sending for demonstration purposes
+                print(f"Mock email sent to {contact['email']}")
+            else:
+                with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+                    server.login(SMTP_EMAIL, SMTP_PASSWORD)
+                    server.sendmail(SMTP_EMAIL, contact["email"], msg.as_string())
+
+            # Log to history
+            try:
+                conn = get_db()
+                conn.execute(
+                    "INSERT INTO historique_messages (contact_id, type_msg, contenu) VALUES (?, ?, ?)",
+                    (contact_id, 'email', f"Sujet: {sujet}\n\n{corps}")
+                )
+                conn.commit()
+            except Exception as e:
+                pass # Ignore history save error
+            finally:
+                conn.close()
 
             flash(f"Email envoyé à {contact['nom']} ({contact['email']}).", "success")
             return redirect(url_for("index"))
@@ -365,8 +407,105 @@ def whatsapp(contact_id):
     numero  = contact["telephone"].replace("+", "").replace(" ", "")
     message = f"Bonjour {contact['nom']},"
     wa_url  = f"https://wa.me/{numero}?text={urllib.parse.quote(message)}"
+
+    # Log to history
+    conn = get_db()
+    try:
+        conn.execute(
+            "INSERT INTO historique_messages (contact_id, type_msg, contenu) VALUES (?, ?, ?)",
+            (contact_id, 'whatsapp', message)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
     return redirect(wa_url)
 
+
+@app.route("/api/history/<int:contact_id>")
+@login_required
+def get_history(contact_id):
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT type_msg, contenu, date_envoi FROM historique_messages WHERE contact_id = ? ORDER BY date_envoi DESC", 
+            (contact_id,)
+        ).fetchall()
+        return jsonify([dict(r) for r in rows])
+    finally:
+        conn.close()
+
+@app.route("/api/history/add", methods=["POST"])
+@login_required
+def add_history():
+    data = request.get_json()
+    contact_id = data.get("contact_id")
+    type_msg = data.get("type", "whatsapp")
+    msg = data.get("msg", "")
+    
+    conn = get_db()
+    try:
+        conn.execute(
+            "INSERT INTO historique_messages (contact_id, type_msg, contenu) VALUES (?, ?, ?)",
+            (contact_id, type_msg, msg)
+        )
+        conn.commit()
+        return jsonify({"success": True})
+    finally:
+        conn.close()
+
+@app.route("/api/contact/<int:contact_id>")
+@login_required
+def get_contact_api(contact_id):
+    conn = get_db()
+    try:
+        contact = conn.execute(_CONTACT_SELECT + "WHERE id = ?", (contact_id,)).fetchone()
+        if contact:
+            return jsonify(dict(contact))
+        return jsonify({"error": "Introuvable"}), 404
+    finally:
+        conn.close()
+
+@app.route("/api/contact/save", methods=["POST"])
+@login_required
+def save_contact_api():
+    data = request.get_json()
+    contact_id = data.get("id")
+    nom = data.get("nom", "").strip()
+    email = data.get("email", "").strip()
+    telephone = data.get("telephone", "").strip()
+    entreprise = data.get("entreprise", "").strip()
+    categorie = data.get("categorie", "Client").strip()
+    adresse = data.get("adresse", "").strip()
+    fonction = data.get("fonction", "").strip()
+    
+    errors = validate_format(nom, email, telephone)
+    if errors:
+        return jsonify({"error": "\n".join(errors)}), 400
+        
+    conn = get_db()
+    try:
+        errors = check_uniqueness(conn, nom, email, telephone, exclude_id=contact_id)
+        if errors:
+            return jsonify({"error": "\n".join(errors)}), 400
+            
+        if contact_id:
+            conn.execute(
+                "UPDATE contacts SET nom=?, email=?, telephone=?, entreprise=?, categorie=?, adresse=?, fonction=? WHERE id=?",
+                (nom, email, telephone, entreprise, categorie, adresse, fonction, contact_id)
+            )
+        else:
+            conn.execute(
+                "INSERT INTO contacts (nom, email, telephone, entreprise, categorie, adresse, fonction) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (nom, email, telephone, entreprise, categorie, adresse, fonction)
+            )
+        conn.commit()
+        sync_csv()
+        return jsonify({"success": True})
+    except sqlite3.IntegrityError:
+        return jsonify({"error": "Ce nom est déjà utilisé."}), 400
+    finally:
+        conn.close()
 
 # ── API JSON ──────────────────────────────────────────────────────────────────
 
@@ -570,6 +709,83 @@ def _fallback_message(nom, categorie, entreprise, contexte, msg_type):
         return jsonify({"message": msg, "fallback": True})
 
     return jsonify({"sujet": sujet, "corps": corps, "fallback": True})
+
+
+# ── Agenda (Google Calendar UI) ───────────────────────────────────────────────
+
+@app.route("/agenda")
+@login_required
+def agenda():
+    conn = get_db()
+    try:
+        contacts = conn.execute("SELECT id, nom FROM contacts ORDER BY nom").fetchall()
+    finally:
+        conn.close()
+    return render_template("agenda.html", contacts=contacts)
+
+
+@app.route("/api/agenda", methods=["GET"])
+@login_required
+def get_agenda():
+    conn = get_db()
+    try:
+        rows = conn.execute('''
+            SELECT r.id, r.contact_id, r.date_rdv, r.heure_rdv, r.motif, c.nom 
+            FROM rendez_vous r
+            JOIN contacts c ON c.id = r.contact_id
+        ''').fetchall()
+        events = []
+        for r in rows:
+            events.append({
+                "id": r["id"],
+                "contact_id": r["contact_id"],
+                "nom": r["nom"],
+                "date": r["date_rdv"],
+                "heure": r["heure_rdv"],
+                "motif": r["motif"]
+            })
+        return jsonify(events)
+    finally:
+        conn.close()
+
+
+@app.route("/api/agenda", methods=["POST"])
+@login_required
+def add_agenda():
+    data = request.get_json()
+    contact_id = data.get("contact_id")
+    date_rdv = data.get("date_rdv")
+    heure_rdv = data.get("heure_rdv")
+    motif = data.get("motif", "")
+    
+    if not contact_id or not date_rdv or not heure_rdv:
+        return jsonify({"error": "Champs manquants"}), 400
+        
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute('''
+            INSERT INTO rendez_vous (contact_id, date_rdv, heure_rdv, motif)
+            VALUES (?, ?, ?, ?)
+        ''', (contact_id, date_rdv, heure_rdv, motif))
+        conn.commit()
+        return jsonify({"success": True, "id": cur.lastrowid})
+    except sqlite3.IntegrityError:
+        return jsonify({"error": "Un rendez-vous existe déjà à cette date et heure."}), 400
+    finally:
+        conn.close()
+
+
+@app.route("/api/agenda/<int:rdv_id>", methods=["DELETE"])
+@login_required
+def delete_agenda(rdv_id):
+    conn = get_db()
+    try:
+        conn.execute("DELETE FROM rendez_vous WHERE id = ?", (rdv_id,))
+        conn.commit()
+        return jsonify({"success": True})
+    finally:
+        conn.close()
 
 
 if __name__ == "__main__":
