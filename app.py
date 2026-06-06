@@ -806,11 +806,15 @@ def export_csv():
     finally:
         conn.close()
 
+    def text_cell(val):
+        # Préfixe tab : force Excel à traiter comme texte (évite conversion en nombre)
+        return "\t" + val if val else ""
+
     buf = io.StringIO()
-    w = csv.writer(buf, delimiter=";")
+    w = csv.writer(buf, delimiter=";", quoting=csv.QUOTE_ALL)
     w.writerow(["Nom", "Email", "Telephone", "Entreprise", "Categorie", "Adresse", "Fonction"])
     for r in rows:
-        w.writerow([r["nom"], r["email"] or "", r["telephone"] or "",
+        w.writerow([r["nom"], r["email"] or "", text_cell(r["telephone"]),
                     r["entreprise"] or "", r["categorie"] or "",
                     r["adresse"] or "", r["fonction"] or ""])
 
