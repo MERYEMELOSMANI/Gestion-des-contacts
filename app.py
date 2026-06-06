@@ -1,5 +1,6 @@
 import csv
 import datetime
+import io
 import hashlib
 import json
 import os
@@ -97,13 +98,14 @@ def sync_csv():
         "IFNULL(categorie,'') AS categorie, IFNULL(adresse,'') AS adresse, "
         "IFNULL(fonction,'') AS fonction FROM contacts ORDER BY nom"
     ).fetchall()
-    with open(CSV_PATH, "w", newline="", encoding="utf-8") as f:
+    # utf-8-sig ajoute le BOM pour qu'Excel détecte correctement l'UTF-8
+    with open(CSV_PATH, "w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f, delimiter=";")
-        w.writerow(["Nom", "Email", "Téléphone", "Entreprise", "Catégorie", "Adresse", "Fonction"])
+        w.writerow(["Nom", "Email", "Telephone", "Entreprise", "Categorie", "Adresse", "Fonction"])
         for r in rows:
-            w.writerow([r["nom"], r["email"], r["telephone"],
-                        r["entreprise"] or "—", r["categorie"] or "—",
-                        r["adresse"] or "—", r["fonction"] or "—"])
+            w.writerow([r["nom"], r["email"] or "", r["telephone"] or "",
+                        r["entreprise"] or "", r["categorie"] or "",
+                        r["adresse"] or "", r["fonction"] or ""])
 
 
 def _extract_form():
@@ -794,9 +796,30 @@ def delete_agenda(rdv_id):
 @app.route("/export-csv")
 @login_required
 def export_csv():
-    sync_csv()
-    return send_file(CSV_PATH, mimetype="text/csv", as_attachment=True,
-                     download_name="contacts.csv")
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT nom, email, telephone, IFNULL(entreprise,'') AS entreprise, "
+            "IFNULL(categorie,'') AS categorie, IFNULL(adresse,'') AS adresse, "
+            "IFNULL(fonction,'') AS fonction FROM contacts ORDER BY nom"
+        ).fetchall()
+    finally:
+        conn.close()
+
+    buf = io.StringIO()
+    w = csv.writer(buf, delimiter=";")
+    w.writerow(["Nom", "Email", "Telephone", "Entreprise", "Categorie", "Adresse", "Fonction"])
+    for r in rows:
+        w.writerow([r["nom"], r["email"] or "", r["telephone"] or "",
+                    r["entreprise"] or "", r["categorie"] or "",
+                    r["adresse"] or "", r["fonction"] or ""])
+
+    # BOM UTF-8 pour ouverture correcte dans Excel avec les accents
+    out = io.BytesIO()
+    out.write(buf.getvalue().encode("utf-8-sig"))
+    out.seek(0)
+    return send_file(out, mimetype="text/csv; charset=utf-8",
+                     as_attachment=True, download_name="contacts.csv")
 
 
 # ── Chatbot Agenda ────────────────────────────────────────────────────────────
