@@ -64,6 +64,28 @@ def login_required(f):
     return wrapper
 
 
+def get_config(cle, default=""):
+    try:
+        conn = get_db()
+        row = conn.execute("SELECT valeur FROM config WHERE cle = ?", (cle,)).fetchone()
+        conn.close()
+        return row["valeur"] if row else default
+    except Exception:
+        return default
+
+
+def set_config(cle, valeur):
+    conn = get_db()
+    conn.execute("INSERT OR REPLACE INTO config (cle, valeur) VALUES (?, ?)", (cle, valeur))
+    conn.commit()
+    conn.close()
+
+
+@app.context_processor
+def inject_get_config():
+    return dict(get_config=get_config)
+
+
 def validate_format(nom, email, telephone):
     errors = []
     if len(nom.strip()) < 3:
@@ -349,24 +371,27 @@ def send_email(contact_id):
             flash("Le sujet et le message sont obligatoires.", "error")
             return render_template("send_email.html", contact=contact)
 
+        # Lire les credentials depuis la DB (priorité) ou les variables d'env
+        smtp_email    = get_config("smtp_email")    or SMTP_EMAIL
+        smtp_password = get_config("smtp_password") or SMTP_PASSWORD
+
+        if not smtp_email or smtp_email == "votre.email@gmail.com":
+            flash("Configurez votre email SMTP dans les Paramètres avant d'envoyer.", "error")
+            return render_template("send_email.html", contact=contact)
+
         try:
             msg = MIMEMultipart("alternative")
             msg["Subject"] = sujet
-            msg["From"]    = SMTP_EMAIL
+            msg["From"]    = smtp_email
             msg["To"]      = contact["email"]
 
-            # Version texte + version HTML basique
             corps_html = corps.replace("\n", "<br>")
             msg.attach(MIMEText(corps, "plain", "utf-8"))
             msg.attach(MIMEText(f"<p>{corps_html}</p>", "html", "utf-8"))
 
-            if SMTP_EMAIL == "votre.email@gmail.com":
-                # Mock email sending for demonstration purposes
-                print(f"Mock email sent to {contact['email']}")
-            else:
-                with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-                    server.login(SMTP_EMAIL, SMTP_PASSWORD)
-                    server.sendmail(SMTP_EMAIL, contact["email"], msg.as_string())
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+                server.login(smtp_email, smtp_password)
+                server.sendmail(smtp_email, contact["email"], msg.as_string())
 
             # Log to history
             try:
@@ -376,8 +401,6 @@ def send_email(contact_id):
                     (contact_id, 'email', f"Sujet: {sujet}\n\n{corps}")
                 )
                 conn.commit()
-            except Exception as e:
-                pass # Ignore history save error
             finally:
                 conn.close()
 
@@ -789,6 +812,30 @@ def delete_agenda(rdv_id):
         return jsonify({"success": True})
     finally:
         conn.close()
+
+
+# ── Paramètres SMTP ──────────────────────────────────────────────────────────
+
+@app.route("/settings", methods=["GET", "POST"])
+@login_required
+def settings():
+    if request.method == "POST":
+        smtp_email    = request.form.get("smtp_email",    "").strip()
+        smtp_password = request.form.get("smtp_password", "").strip()
+        if not smtp_email or "@" not in smtp_email:
+            flash("Adresse email invalide.", "error")
+        else:
+            set_config("smtp_email", smtp_email)
+            if smtp_password:
+                set_config("smtp_password", smtp_password)
+            flash("Paramètres SMTP enregistrés.", "success")
+        return redirect(url_for("settings"))
+
+    current_email = get_config("smtp_email")
+    configured    = bool(current_email)
+    return render_template("settings.html",
+                           current_email=current_email,
+                           configured=configured)
 
 
 # ── Export CSV ────────────────────────────────────────────────────────────────

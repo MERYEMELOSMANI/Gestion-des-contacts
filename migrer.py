@@ -55,6 +55,15 @@ cur.execute("""
 """)
 print("  [OK]  Table 'historique_messages' prête.")
 
+# 4. Table config (paramètres SMTP, etc.)
+cur.execute("""
+    CREATE TABLE IF NOT EXISTS config (
+        cle   TEXT PRIMARY KEY,
+        valeur TEXT NOT NULL DEFAULT ''
+    )
+""")
+print("  [OK]  Table 'config' prête.")
+
 conn.commit()
 conn.close()
 print("\nMigration terminée avec succès.")

@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% block title %}Paramètres — ContactBook Premium{% endblock %}
+{% block page_title %}Paramètres{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 600px;">
+  <div style="padding: 28px 28px 0;">
+    <h3 style="font-size:18px; font-weight:700; color:var(--text); margin-bottom:6px; font-family:'Poppins',sans-serif;">
+      <i class="bi bi-envelope-at" style="color:var(--primary); margin-right:10px;"></i>Configuration Email SMTP
+    </h3>
+    <p style="font-size:14px; color:var(--text-3); margin-bottom:24px;">
+      Entrez vos identifiants Gmail pour activer l'envoi d'emails depuis l'application.
+    </p>
+
+    {% if configured %}
+    <div style="display:flex; align-items:center; gap:10px; padding:14px 18px; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); border-radius:12px; margin-bottom:24px;">
+      <i class="bi bi-check-circle-fill" style="color:var(--success); font-size:20px;"></i>
+      <div>
+        <div style="font-weight:600; color:var(--success); font-size:14px;">Email configuré</div>
+        <div style="font-size:13px; color:var(--text-3);">{{ current_email }}</div>
+      </div>
+    </div>
+    {% else %}
+    <div style="display:flex; align-items:center; gap:10px; padding:14px 18px; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.3); border-radius:12px; margin-bottom:24px;">
+      <i class="bi bi-exclamation-triangle-fill" style="color:var(--danger); font-size:20px;"></i>
+      <div style="font-size:14px; color:var(--danger); font-weight:600;">Email non configuré — les envois sont désactivés.</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <form method="post" style="padding: 0 28px 28px;">
+    <div class="input-group">
+      <label class="input-label">Adresse Gmail *</label>
+      <i class="bi bi-envelope input-icon"></i>
+      <input type="email" name="smtp_email" class="input-field"
+             value="{{ current_email }}" placeholder="votre.adresse@gmail.com" required>
+    </div>
+
+    <div class="input-group" style="margin-bottom:8px;">
+      <label class="input-label">Mot de passe d'application Google *</label>
+      <i class="bi bi-key input-icon"></i>
+      <input type="password" name="smtp_password" class="input-field"
+             placeholder="{% if configured %}Laisser vide pour conserver l'actuel{% else %}xxxx xxxx xxxx xxxx{% endif %}">
+    </div>
+
+    <div style="background:var(--surface-hover); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:24px;">
+      <div style="font-weight:600; font-size:13px; color:var(--text-2); margin-bottom:10px;">
+        <i class="bi bi-info-circle" style="color:var(--primary); margin-right:6px;"></i>Comment obtenir un mot de passe d'application Google ?
+      </div>
+      <ol style="font-size:13px; color:var(--text-3); padding-left:18px; line-height:2;">
+        <li>Activez la <strong style="color:var(--text-2);">validation en 2 étapes</strong> sur votre compte Google</li>
+        <li>Allez dans <strong style="color:var(--text-2);">Mon compte Google → Sécurité</strong></li>
+        <li>Cherchez <strong style="color:var(--text-2);">"Mots de passe des applications"</strong></li>
+        <li>Créez un mot de passe pour <em>Autre (nom personnalisé)</em> → tapez "ContactPro"</li>
+        <li>Copiez le code à 16 caractères généré et collez-le ci-dessus</li>
+      </ol>
+    </div>
+
+    <div style="display:flex; gap:12px;">
+      <button type="submit" class="btn-primary" style="display:flex; align-items:center; gap:8px;">
+        <i class="bi bi-floppy"></i> Enregistrer
+      </button>
+      {% if configured %}
+      <a href="{{ url_for('index') }}" class="btn-secondary">Retour</a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+{% endblock %}

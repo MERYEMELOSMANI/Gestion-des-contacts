@@ -410,6 +410,10 @@
     <a href="{{ url_for('agenda') }}" class="sb-link {% if request.endpoint == 'agenda' %}active{% endif %}">
       <i class="bi bi-calendar-event"></i> Planification
     </a>
+    <a href="{{ url_for('settings') }}" class="sb-link {% if request.endpoint == 'settings' %}active{% endif %}" style="margin-top:auto;">
+      <i class="bi bi-gear"></i> Paramètres
+      {% if not get_config('smtp_email') %}<span style="margin-left:auto;width:8px;height:8px;border-radius:50%;background:var(--danger);display:inline-block;"></span>{% endif %}
+    </a>
   </nav>
 
   <div class="sb-footer">
