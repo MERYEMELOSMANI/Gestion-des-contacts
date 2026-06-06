@@ -1,89 +1,141 @@
 {% extends 'base.html' %}
 {% block title %}{{ 'Modifier' if contact else 'Nouveau contact' }} — ContactBook Pro{% endblock %}
 {% block page_title %}
-<i class="bi bi-{{ 'pencil' if contact else 'person-plus' }}" style="color:var(--pr);"></i>&nbsp;{{ 'Modifier le contact' if contact else 'Nouveau contact' }}
+<i class="bi bi-{{ 'pencil-square' if contact else 'person-plus-fill' }}"></i>
+{{ 'Modifier le contact' if contact else 'Nouveau contact' }}
 {% endblock %}
 
 {% block content %}
-<div style="max-width:700px;">
-  <a href="{{ url_for('index') }}"
-     style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:20px;transition:color .15s;"
-     onmouseover="this.style.color='var(--pr)'" onmouseout="this.style.color='var(--muted)'">
+<div style="max-width:680px;">
+
+  <a href="{{ url_for('index') }}" class="back-link">
     <i class="bi bi-arrow-left"></i> Retour aux contacts
   </a>
-  <div class="card">
-    <div class="card-body p-4">
+
+  <div class="panel">
+
+    {# Panel header #}
+    <div class="panel-head">
+      <div style="width:32px;height:32px;border-radius:8px;background:var(--pr-pale);display:flex;align-items:center;justify-content:center;color:var(--pr);font-size:14px;flex-shrink:0;">
+        <i class="bi bi-{{ 'pencil' if contact else 'person-plus' }}"></i>
+      </div>
+      <div class="panel-title">
+        {{ 'Modifier les informations' if contact else 'Informations du contact' }}
+      </div>
+      {% if contact %}
+      <span style="font-size:11.5px;color:var(--text-4);font-weight:500;">ID #{{ contact.id }}</span>
+      {% endif %}
+    </div>
+
+    {# Form #}
+    <div style="padding:24px;">
       <form method="post" action="{{ action }}" novalidate id="cf">
-        <div class="row g-3">
-          <div class="col-md-6">
-            <label class="form-label">Nom <span style="color:var(--danger);">*</span></label>
-            <div class="input-icon"><i class="bi bi-person"></i>
-              <input name="nom" class="form-control" placeholder="Jean Dupont"
-                     required minlength="3" value="{{ form_data.get('nom','') }}">
+
+        <div class="g-2">
+
+          <div>
+            <label class="field-label">Nom complet <span style="color:var(--danger);">*</span></label>
+            <div class="inp-wrap">
+              <i class="bi bi-person inp-icon"></i>
+              <input class="inp" name="nom" placeholder="Jean Dupont"
+                     required minlength="2"
+                     value="{{ form_data.get('nom','') }}">
             </div>
           </div>
-          <div class="col-md-6">
-            <label class="form-label">Email</label>
-            <div class="input-icon"><i class="bi bi-envelope"></i>
-              <input name="email" type="email" class="form-control"
-                     placeholder="jean.dupont@exemple.com" value="{{ form_data.get('email','') }}">
+
+          <div>
+            <label class="field-label">Adresse email</label>
+            <div class="inp-wrap">
+              <i class="bi bi-envelope inp-icon"></i>
+              <input class="inp" name="email" type="email"
+                     placeholder="jean@exemple.com"
+                     value="{{ form_data.get('email','') }}">
             </div>
           </div>
-          <div class="col-md-6">
-            <label class="form-label">Téléphone</label>
-            <div class="input-icon"><i class="bi bi-telephone"></i>
-              <input name="telephone" class="form-control" placeholder="+212612345678"
-                     pattern="^\+.{9,}$" value="{{ form_data.get('telephone','') }}">
+
+          <div>
+            <label class="field-label">Téléphone</label>
+            <div class="inp-wrap">
+              <i class="bi bi-telephone inp-icon"></i>
+              <input class="inp" name="telephone"
+                     placeholder="+212 6 12 34 56 78"
+                     pattern="^\+.{9,}$"
+                     value="{{ form_data.get('telephone','') }}">
             </div>
-            <div class="form-text" style="font-size:11px;">Format international : +212…</div>
+            <div class="field-hint">Format international : +212…</div>
           </div>
-          <div class="col-md-6">
-            <label class="form-label">Entreprise</label>
-            <div class="input-icon"><i class="bi bi-building"></i>
-              <input name="entreprise" class="form-control"
-                     placeholder="Acme Corp" value="{{ form_data.get('entreprise','') }}">
+
+          <div>
+            <label class="field-label">Entreprise / Organisation</label>
+            <div class="inp-wrap">
+              <i class="bi bi-building inp-icon"></i>
+              <input class="inp" name="entreprise"
+                     placeholder="Acme Corp"
+                     value="{{ form_data.get('entreprise','') }}">
             </div>
           </div>
-          <div class="col-md-6">
-            <label class="form-label">Catégorie</label>
-            <div class="input-icon"><i class="bi bi-tag"></i>
-              <select name="categorie" class="form-select">
+
+          <div>
+            <label class="field-label">Catégorie</label>
+            <div class="inp-wrap">
+              <i class="bi bi-tag inp-icon"></i>
+              <select class="inp" name="categorie">
                 {% for cat in categories %}
                 <option value="{{ cat }}" {{ 'selected' if form_data.get('categorie','Client')==cat }}>{{ cat }}</option>
                 {% endfor %}
               </select>
             </div>
           </div>
-          <div class="col-md-6">
-            <label class="form-label">Fonction</label>
-            <div class="input-icon"><i class="bi bi-briefcase"></i>
-              <input name="fonction" class="form-control"
-                     placeholder="Directeur, Médecin…" value="{{ form_data.get('fonction','') }}">
+
+          <div>
+            <label class="field-label">Fonction / Poste</label>
+            <div class="inp-wrap">
+              <i class="bi bi-briefcase inp-icon"></i>
+              <input class="inp" name="fonction"
+                     placeholder="Directeur, Médecin, Ingénieur…"
+                     value="{{ form_data.get('fonction','') }}">
             </div>
           </div>
-          <div class="col-12">
-            <label class="form-label">Adresse</label>
-            <div class="input-icon"><i class="bi bi-geo-alt"></i>
-              <input name="adresse" class="form-control"
-                     placeholder="123 rue Exemple, Casablanca" value="{{ form_data.get('adresse','') }}">
+
+          <div style="grid-column:1/-1;">
+            <label class="field-label">Adresse</label>
+            <div class="inp-wrap">
+              <i class="bi bi-geo-alt inp-icon" style="top:14px;transform:none;"></i>
+              <input class="inp" name="adresse"
+                     placeholder="123 rue Exemple, Casablanca"
+                     value="{{ form_data.get('adresse','') }}">
             </div>
           </div>
+
         </div>
-        <div class="d-flex gap-2 mt-4 pt-3" style="border-top:1px solid var(--border);">
-          <button type="submit" class="btn btn-primary px-4">
-            <i class="bi bi-check2 me-1"></i>{{ 'Mettre à jour' if contact else 'Enregistrer' }}
+
+        <div style="display:flex;gap:10px;margin-top:24px;padding-top:20px;border-top:1px solid var(--border);">
+          <button type="submit" class="btn-pr">
+            <i class="bi bi-{{ 'check2' if contact else 'plus-lg' }}"></i>
+            {{ 'Mettre à jour' if contact else 'Enregistrer le contact' }}
           </button>
-          <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">Annuler</a>
+          <a href="{{ url_for('index') }}" class="btn-ghost">
+            Annuler
+          </a>
         </div>
+
       </form>
     </div>
+
   </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-const f=document.getElementById('cf');
-f.addEventListener('submit',function(e){if(!f.checkValidity()){e.preventDefault();e.stopPropagation();f.classList.add('was-validated');}});
+const f = document.getElementById('cf');
+f.addEventListener('submit', function(e){
+  if(!f.checkValidity()){
+    e.preventDefault();
+    e.stopPropagation();
+    const first = f.querySelector(':invalid');
+    if(first){ first.focus(); first.closest('.inp-wrap').querySelector('.inp').style.borderColor='var(--danger)'; }
+  }
+});
 </script>
 {% endblock %}
