@@ -1,120 +1,81 @@
 {% extends 'base.html' %}
-{% block title %}{{ 'Modifier' if contact else 'Nouveau contact' }} — Carnet d'adresses{% endblock %}
+{% block title %}{{ 'Modifier' if contact else 'Nouveau contact' }} — ContactBook Pro{% endblock %}
+{% block page_title %}
+<i class="bi bi-{{ 'pencil' if contact else 'person-plus' }}" style="color:var(--pr);"></i>&nbsp;{{ 'Modifier le contact' if contact else 'Nouveau contact' }}
+{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-  <div class="col-md-8 col-lg-7">
-
-    <div class="d-flex align-items-center gap-2 mb-4">
-      <a href="{{ url_for('index') }}" class="btn btn-sm btn-outline-secondary" title="Retour">
-        <i class="bi bi-arrow-left"></i>
-      </a>
-      <h2 class="fw-bold mb-0">
-        {{ 'Modifier le contact' if contact else 'Nouveau contact' }}
-      </h2>
-    </div>
-
-    <div class="card shadow-sm">
-      <div class="card-body p-4">
-        <form method="post" action="{{ action }}" novalidate id="contactForm">
-
-          {# ── Informations de base ── #}
-          <h6 class="text-muted text-uppercase fw-semibold mb-3" style="font-size:.75rem;letter-spacing:.05em;">
-            <i class="bi bi-person me-1"></i>Informations de base
-          </h6>
-
-          <div class="mb-3">
-            <label class="form-label fw-medium" for="nom">Nom <span class="text-danger">*</span></label>
-            <div class="input-group">
-              <span class="input-group-text"><i class="bi bi-person text-muted"></i></span>
-              <input id="nom" name="nom" class="form-control" placeholder="Jean Dupont"
-                     required minlength="3" value="{{ form_data.get('nom', '') }}">
-              <div class="invalid-feedback">Le nom doit contenir au moins 3 caractères.</div>
+<div style="max-width:700px;">
+  <a href="{{ url_for('index') }}"
+     style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:20px;transition:color .15s;"
+     onmouseover="this.style.color='var(--pr)'" onmouseout="this.style.color='var(--muted)'">
+    <i class="bi bi-arrow-left"></i> Retour aux contacts
+  </a>
+  <div class="card">
+    <div class="card-body p-4">
+      <form method="post" action="{{ action }}" novalidate id="cf">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Nom <span style="color:var(--danger);">*</span></label>
+            <div class="input-icon"><i class="bi bi-person"></i>
+              <input name="nom" class="form-control" placeholder="Jean Dupont"
+                     required minlength="3" value="{{ form_data.get('nom','') }}">
             </div>
           </div>
-
-          <div class="row g-3 mb-3">
-            <div class="col-md-6">
-              <label class="form-label fw-medium" for="email">Email</label>
-              <div class="input-group">
-                <span class="input-group-text"><i class="bi bi-envelope text-muted"></i></span>
-                <input id="email" name="email" type="email" class="form-control"
-                       placeholder="jean@exemple.com" value="{{ form_data.get('email', '') }}">
-              </div>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label fw-medium" for="telephone">Téléphone</label>
-              <div class="input-group">
-                <span class="input-group-text"><i class="bi bi-telephone text-muted"></i></span>
-                <input id="telephone" name="telephone" class="form-control"
-                       placeholder="+33612345678" pattern="^\+.{9,}$"
-                       value="{{ form_data.get('telephone', '') }}">
-                <div class="invalid-feedback">Format : +33612345678</div>
-              </div>
+          <div class="col-md-6">
+            <label class="form-label">Email</label>
+            <div class="input-icon"><i class="bi bi-envelope"></i>
+              <input name="email" type="email" class="form-control"
+                     placeholder="jean.dupont@exemple.com" value="{{ form_data.get('email','') }}">
             </div>
           </div>
-
-          {# ── Partie 8 : Informations professionnelles ── #}
-          <hr class="my-3">
-          <h6 class="text-muted text-uppercase fw-semibold mb-3" style="font-size:.75rem;letter-spacing:.05em;">
-            <i class="bi bi-briefcase me-1"></i>Informations professionnelles
-          </h6>
-
-          <div class="row g-3 mb-3">
-            <div class="col-md-6">
-              <label class="form-label fw-medium" for="categorie">Catégorie</label>
-              <div class="input-group">
-                <span class="input-group-text"><i class="bi bi-tag text-muted"></i></span>
-                <select id="categorie" name="categorie" class="form-select">
-                  {% for cat in categories %}
-                  <option value="{{ cat }}"
-                    {{ 'selected' if form_data.get('categorie', 'Client') == cat else '' }}>
-                    {{ cat }}
-                  </option>
-                  {% endfor %}
-                </select>
-              </div>
+          <div class="col-md-6">
+            <label class="form-label">Téléphone</label>
+            <div class="input-icon"><i class="bi bi-telephone"></i>
+              <input name="telephone" class="form-control" placeholder="+212612345678"
+                     pattern="^\+.{9,}$" value="{{ form_data.get('telephone','') }}">
             </div>
-            <div class="col-md-6">
-              <label class="form-label fw-medium" for="fonction">Fonction</label>
-              <div class="input-group">
-                <span class="input-group-text"><i class="bi bi-person-badge text-muted"></i></span>
-                <input id="fonction" name="fonction" class="form-control"
-                       placeholder="Médecin, Directeur…"
-                       value="{{ form_data.get('fonction', '') }}">
-              </div>
+            <div class="form-text" style="font-size:11px;">Format international : +212…</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Entreprise</label>
+            <div class="input-icon"><i class="bi bi-building"></i>
+              <input name="entreprise" class="form-control"
+                     placeholder="Acme Corp" value="{{ form_data.get('entreprise','') }}">
             </div>
           </div>
-
-          <div class="mb-3">
-            <label class="form-label fw-medium" for="entreprise">Entreprise / Établissement</label>
-            <div class="input-group">
-              <span class="input-group-text"><i class="bi bi-building text-muted"></i></span>
-              <input id="entreprise" name="entreprise" class="form-control"
-                     placeholder="Clinique Saint-Louis, Acme Corp…"
-                     value="{{ form_data.get('entreprise', '') }}">
+          <div class="col-md-6">
+            <label class="form-label">Catégorie</label>
+            <div class="input-icon"><i class="bi bi-tag"></i>
+              <select name="categorie" class="form-select">
+                {% for cat in categories %}
+                <option value="{{ cat }}" {{ 'selected' if form_data.get('categorie','Client')==cat }}>{{ cat }}</option>
+                {% endfor %}
+              </select>
             </div>
           </div>
-
-          <div class="mb-4">
-            <label class="form-label fw-medium" for="adresse">Adresse</label>
-            <div class="input-group">
-              <span class="input-group-text"><i class="bi bi-geo-alt text-muted"></i></span>
-              <input id="adresse" name="adresse" class="form-control"
-                     placeholder="12 rue de la Paix, 75001 Paris"
-                     value="{{ form_data.get('adresse', '') }}">
+          <div class="col-md-6">
+            <label class="form-label">Fonction</label>
+            <div class="input-icon"><i class="bi bi-briefcase"></i>
+              <input name="fonction" class="form-control"
+                     placeholder="Directeur, Médecin…" value="{{ form_data.get('fonction','') }}">
             </div>
           </div>
-
-          <div class="d-flex gap-2">
-            <button class="btn btn-primary px-4" type="submit">
-              <i class="bi bi-check2 me-1"></i>Enregistrer
-            </button>
-            <a class="btn btn-outline-secondary" href="{{ url_for('index') }}">Annuler</a>
+          <div class="col-12">
+            <label class="form-label">Adresse</label>
+            <div class="input-icon"><i class="bi bi-geo-alt"></i>
+              <input name="adresse" class="form-control"
+                     placeholder="123 rue Exemple, Casablanca" value="{{ form_data.get('adresse','') }}">
+            </div>
           </div>
-
-        </form>
-      </div>
+        </div>
+        <div class="d-flex gap-2 mt-4 pt-3" style="border-top:1px solid var(--border);">
+          <button type="submit" class="btn btn-primary px-4">
+            <i class="bi bi-check2 me-1"></i>{{ 'Mettre à jour' if contact else 'Enregistrer' }}
+          </button>
+          <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">Annuler</a>
+        </div>
+      </form>
     </div>
   </div>
 </div>
@@ -122,13 +83,7 @@
 
 {% block scripts %}
 <script>
-(function () {
-  'use strict';
-  var form = document.getElementById('contactForm');
-  form.addEventListener('submit', function (e) {
-    if (!form.checkValidity()) { e.preventDefault(); e.stopPropagation(); }
-    form.classList.add('was-validated');
-  });
-})();
+const f=document.getElementById('cf');
+f.addEventListener('submit',function(e){if(!f.checkValidity()){e.preventDefault();e.stopPropagation();f.classList.add('was-validated');}});
 </script>
 {% endblock %}

@@ -1,9 +1,12 @@
 import csv
 import hashlib
+import json
 import os
 import re
 import smtplib
 import sqlite3
+import urllib.parse
+import urllib.request
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from functools import wraps
@@ -26,6 +29,10 @@ SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "votre_mot_de_passe_app")
 
 # Partie 8 — Catégories disponibles
 CATEGORIES = ["Client", "Fournisseur", "Patient", "Laboratoire", "Partenaire", "Autre"]
+
+# Partie 9 — Google Gemini (IA générative)
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_URL     = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent"
 
 _CONTACT_SELECT = """
     SELECT id, nom, email, telephone,
@@ -151,9 +158,16 @@ def index():
     cat_filter = request.args.get("categorie", "").strip()
     conn = get_db()
     try:
-        base_sql = _CONTACT_SELECT
-        params   = []
+        # Stats globales (non filtrées)
+        total    = conn.execute("SELECT COUNT(*) AS n FROM contacts").fetchone()["n"]
+        cat_rows = conn.execute(
+            "SELECT IFNULL(categorie,'Autre') AS cat, COUNT(*) AS n FROM contacts GROUP BY cat"
+        ).fetchall()
+        stats = {"total": total, "cats": {r["cat"]: r["n"] for r in cat_rows}}
 
+        # Contacts filtrés
+        base_sql   = _CONTACT_SELECT
+        params     = []
         conditions = []
         if q:
             p = f"%{q}%"
@@ -165,17 +179,16 @@ def index():
         if cat_filter:
             conditions.append("categorie = ?")
             params.append(cat_filter)
-
         if conditions:
             base_sql += " WHERE " + " AND ".join(conditions)
         base_sql += " ORDER BY nom"
-
         contacts = conn.execute(base_sql, params).fetchall()
     finally:
         conn.close()
     return render_template("index.html",
                            contacts=contacts, q=q,
-                           categories=CATEGORIES, cat_filter=cat_filter)
+                           categories=CATEGORIES, cat_filter=cat_filter,
+                           stats=stats)
 
 
 @app.route("/add", methods=["GET", "POST"])
@@ -349,11 +362,9 @@ def whatsapp(contact_id):
     finally:
         conn.close()
 
-    # Supprime le + et les espaces pour l'URL WhatsApp
-    numero = contact["telephone"].replace("+", "").replace(" ", "")
+    numero  = contact["telephone"].replace("+", "").replace(" ", "")
     message = f"Bonjour {contact['nom']},"
-    import urllib.parse
-    wa_url = f"https://wa.me/{numero}?text={urllib.parse.quote(message)}"
+    wa_url  = f"https://wa.me/{numero}?text={urllib.parse.quote(message)}"
     return redirect(wa_url)
 
 
@@ -378,6 +389,187 @@ def api_contacts():
     finally:
         conn.close()
     return jsonify([dict(r) for r in rows])
+
+
+# ── Partie 9 : Génération de message par IA (Google Gemini) ──────────────────
+
+@app.route("/api/generate-message", methods=["POST"])
+@login_required
+def generate_message():
+    data       = request.get_json(silent=True) or {}
+    contact_id = data.get("contact_id")
+    msg_type   = data.get("type", "email")      # "email" ou "whatsapp"
+    context    = data.get("context", "").strip()
+
+    conn = get_db()
+    try:
+        contact = conn.execute(_CONTACT_SELECT + "WHERE id = ?", (contact_id,)).fetchone()
+        if not contact:
+            return jsonify({"error": "Contact introuvable"}), 404
+    finally:
+        conn.close()
+
+    nom        = contact["nom"]
+    categorie  = contact["categorie"] or ""
+    entreprise = contact["entreprise"] or ""
+    ctx_line   = context or "prise de contact générale"
+
+    if msg_type == "whatsapp":
+        prompt = (
+            f"Rédige un message WhatsApp professionnel et chaleureux en français pour ce contact :\n"
+            f"Nom : {nom}\nCatégorie : {categorie}\nEntreprise : {entreprise}\n"
+            f"Contexte : {ctx_line}\n\n"
+            f"Le message doit être court (3-4 lignes), commencer par 'Bonjour {nom},' "
+            f"et être adapté à WhatsApp. Ne retourne que le texte du message, sans titres ni explications."
+        )
+    else:
+        prompt = (
+            f"Rédige un email professionnel en français pour ce contact :\n"
+            f"Nom : {nom}\nCatégorie : {categorie}\nEntreprise : {entreprise}\n"
+            f"Contexte : {ctx_line}\n\n"
+            f"Retourne UNIQUEMENT un objet JSON valide avec deux champs :\n"
+            f"- \"sujet\" : objet de l'email (max 60 caractères)\n"
+            f"- \"corps\" : corps du message (3-5 paragraphes, professionnel, commence par 'Bonjour {nom},')\n"
+            f"Ne mets rien en dehors du JSON."
+        )
+
+    try:
+        payload = json.dumps({
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"temperature": 0.7, "maxOutputTokens": 600}
+        }).encode("utf-8")
+
+        req = urllib.request.Request(
+            f"{GEMINI_URL}?key={GEMINI_API_KEY}",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+
+        text = result["candidates"][0]["content"]["parts"][0]["text"].strip()
+
+        if msg_type == "email":
+            json_match = re.search(r'\{[\s\S]*\}', text)
+            if json_match:
+                try:
+                    parsed = json.loads(json_match.group())
+                    return jsonify({"sujet": parsed.get("sujet", ""), "corps": parsed.get("corps", text)})
+                except json.JSONDecodeError:
+                    pass
+            return jsonify({"sujet": f"Message pour {nom}", "corps": text})
+        else:
+            return jsonify({"message": text})
+
+    except (urllib.error.HTTPError, urllib.error.URLError, Exception):
+        return _fallback_message(nom, categorie, entreprise, ctx_line, msg_type)
+
+
+def _fallback_message(nom, categorie, entreprise, contexte, msg_type):
+    """Génère un message professionnel localement selon le contexte et la catégorie."""
+    ctx = contexte.lower()
+    cat = (categorie or "").lower()
+    ent = f" ({entreprise})" if entreprise else ""
+
+    # Détection du sujet selon les mots-clés du contexte
+    if any(w in ctx for w in ["rdv", "rendez-vous", "rendez", "réunion", "rencontre"]):
+        theme = "rdv"
+    elif any(w in ctx for w in ["résultat", "analyse", "rapport", "bilan", "examen"]):
+        theme = "resultats"
+    elif any(w in ctx for w in ["facture", "paiement", "devis", "commande", "livraison"]):
+        theme = "commercial"
+    elif any(w in ctx for w in ["relance", "suivi", "rappel", "urgent"]):
+        theme = "relance"
+    elif any(w in ctx for w in ["information", "info", "mise à jour", "actualité"]):
+        theme = "info"
+    else:
+        theme = "general"
+
+    # Templates email selon catégorie + thème
+    templates_email = {
+        ("patient", "rdv"): (
+            f"Confirmation de votre rendez-vous",
+            f"Bonjour {nom},\n\nNous vous confirmons votre rendez-vous à la date convenue.\n\n"
+            f"Merci de vous présenter 10 minutes avant l'heure prévue et d'apporter votre carnet de santé "
+            f"ainsi que votre carte d'assurance maladie.\n\n"
+            f"En cas d'empêchement, nous vous prions de nous prévenir au plus tôt afin de libérer le créneau "
+            f"pour un autre patient.\n\nNous restons à votre disposition pour toute question.\n\nCordialement"
+        ),
+        ("patient", "resultats"): (
+            f"Vos résultats d'analyses sont disponibles",
+            f"Bonjour {nom},\n\nNous avons le plaisir de vous informer que vos résultats d'analyses "
+            f"sont désormais disponibles.\n\nNous vous invitons à prendre contact avec notre cabinet "
+            f"afin de convenir d'un rendez-vous pour en discuter avec le praticien.\n\n"
+            f"Votre suivi médical est notre priorité et nous restons disponibles pour répondre "
+            f"à toutes vos questions.\n\nCordialement"
+        ),
+        ("client", "rdv"): (
+            f"Confirmation de notre rendez-vous",
+            f"Bonjour {nom},\n\nJe me permets de vous écrire afin de confirmer notre rendez-vous "
+            f"{'concernant ' + contexte if contexte else 'prévu prochainement'}.\n\n"
+            f"Ce sera l'occasion de faire le point ensemble et d'avancer sur nos projets communs.\n\n"
+            f"N'hésitez pas à me contacter si vous souhaitez modifier l'horaire ou si vous avez "
+            f"des questions en amont.\n\nDans l'attente de notre rencontre, je vous adresse "
+            f"mes cordiales salutations."
+        ),
+        ("fournisseur", "commercial"): (
+            f"Suivi de notre collaboration{ent}",
+            f"Bonjour {nom},\n\nJe me permets de vous contacter concernant {contexte if contexte else 'notre collaboration en cours'}.\n\n"
+            f"Après examen de notre dossier, je souhaiterais faire le point avec vous sur l'avancement "
+            f"et m'assurer que tout se déroule conformément à nos engagements respectifs.\n\n"
+            f"Pourriez-vous me confirmer les prochaines étapes et les délais prévisionnels ?\n\n"
+            f"Je reste disponible pour en discuter à votre convenance.\n\nCordialement"
+        ),
+        ("laboratoire", "resultats"): (
+            f"Demande de résultats — {nom}{ent}",
+            f"Bonjour {nom},\n\nNous nous permettons de vous relancer concernant "
+            f"{'les ' + contexte if contexte else 'les résultats en attente'}.\n\n"
+            f"Ces éléments sont nécessaires pour assurer la continuité du suivi de nos patients "
+            f"et nous vous saurions gré de bien vouloir nous les faire parvenir dans les meilleurs délais.\n\n"
+            f"Nous vous remercions pour votre collaboration habituelle.\n\nCordialement"
+        ),
+    }
+
+    # Chercher le template le plus adapté
+    key = (cat, theme)
+    if key in templates_email:
+        sujet, corps = templates_email[key]
+    else:
+        # Template générique enrichi
+        intro_par_cat = {
+            "patient":      "Dans le cadre de votre suivi médical",
+            "client":       "Dans le cadre de notre collaboration",
+            "fournisseur":  "Dans le cadre de notre partenariat commercial",
+            "laboratoire":  "Dans le cadre de nos échanges professionnels",
+            "partenaire":   "Dans le cadre de notre partenariat",
+        }
+        intro = intro_par_cat.get(cat, "Suite à nos échanges")
+        sujet = f"{'Re: ' if theme == 'relance' else ''}{contexte.capitalize() if contexte else 'Message important'} — {nom}"
+        corps = (
+            f"Bonjour {nom},\n\n"
+            f"{intro}, je me permets de vous adresser ce message "
+            f"{'concernant : ' + contexte + '.' if contexte else 'pour maintenir le contact avec vous.'}\n\n"
+            f"{'Je souhaite attirer votre attention sur ce point qui nécessite votre intervention dans les meilleurs délais.' if theme == 'relance' else 'Nous accordons la plus grande importance à votre satisfaction et restons attentifs à vos besoins.'}\n\n"
+            f"{'Notre équipe est à votre entière disposition' if cat in ('client','patient') else 'Je reste disponible'} "
+            f"pour tout renseignement complémentaire ou pour convenir d'un rendez-vous à votre convenance.\n\n"
+            f"Dans l'attente de votre retour, veuillez agréer, {nom.split('.')[0].capitalize()}, "
+            f"l'expression de mes salutations distinguées.\n\nCordialement"
+        )
+
+    if msg_type == "whatsapp":
+        # Version WhatsApp courte et naturelle
+        wa_templates = {
+            "rdv":       f"Bonjour {nom} 👋\nJe vous contacte pour {'confirmer notre RDV' if not contexte else contexte}.\nPourriez-vous confirmer votre disponibilité ? Merci 🙏",
+            "resultats": f"Bonjour {nom} 👋\nVos résultats sont disponibles. Merci de nous contacter pour convenir d'un rendez-vous. À bientôt 😊",
+            "commercial": f"Bonjour {nom} 👋\nSuite à {'notre échange' if not contexte else contexte}, pourriez-vous me revenir rapidement ? Merci d'avance 🙏",
+            "relance":   f"Bonjour {nom} 👋\nJe me permets de vous relancer concernant {contexte if contexte else 'notre dossier en attente'}. Merci de bien vouloir me recontacter 🙏",
+            "general":   f"Bonjour {nom} 👋\n{'Concernant ' + contexte + ', je' if contexte else 'Je'} souhaitais vous contacter. Seriez-vous disponible pour en discuter ? Merci 😊",
+        }
+        msg = wa_templates.get(theme, wa_templates["general"])
+        return jsonify({"message": msg, "fallback": True})
+
+    return jsonify({"sujet": sujet, "corps": corps, "fallback": True})
 
 
 if __name__ == "__main__":

@@ -1,162 +1,146 @@
 {% extends 'base.html' %}
-{% block title %}Contacts — Carnet d'adresses{% endblock %}
+{% block title %}Tableau de bord — ContactBook Pro{% endblock %}
+{% block page_title %}<i class="bi bi-house-door" style="color:var(--pr);"></i>&nbsp;Tableau de bord{% endblock %}
+{% block topbar_right %}
+<a href="{{ url_for('add_contact') }}" class="btn btn-primary btn-sm px-3">
+  <i class="bi bi-plus-lg me-1"></i><span class="d-none d-sm-inline">Ajouter</span>
+</a>
+{% endblock %}
 
 {% block content %}
-{% set palette = ['#4361ee','#7209b7','#3a0ca3','#2d6a4f','#e63946','#f4a261','#2a9d8f','#457b9d','#e76f51','#264653'] %}
-
-{# ── Badges de couleur par catégorie ── #}
-{% set cat_colors = {
-  'Client':      'primary',
-  'Fournisseur': 'warning',
-  'Patient':     'success',
-  'Laboratoire': 'info',
-  'Partenaire':  'secondary',
-  'Autre':       'dark'
-} %}
-
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <div>
-    <h2 class="fw-bold mb-0">Mes contacts</h2>
-    <span class="text-muted small">
-      {{ contacts | length }} contact{{ 's' if contacts | length != 1 else '' }}
-      {% if q %} — résultats pour « <strong>{{ q }}</strong> »{% endif %}
-      {% if cat_filter %} — catégorie : <strong>{{ cat_filter }}</strong>{% endif %}
-    </span>
+{# ── Stats row ── #}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-ic" style="background:#eef2ff;color:#6366f1;"><i class="bi bi-people-fill"></i></div>
+      <div><div class="stat-num">{{ stats.total }}</div><div class="stat-lbl">Total contacts</div></div>
+    </div>
   </div>
-  <a class="btn btn-primary" href="{{ url_for('add_contact') }}">
-    <i class="bi bi-person-plus-fill me-1"></i>
-    <span class="d-none d-sm-inline">Ajouter</span>
-  </a>
+  <div class="col-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-ic" style="background:#d1fae5;color:#10b981;"><i class="bi bi-person-check-fill"></i></div>
+      <div><div class="stat-num">{{ stats.cats.get('Client',0) }}</div><div class="stat-lbl">Clients</div></div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-ic" style="background:#fdf2f8;color:#db2777;"><i class="bi bi-heart-pulse-fill"></i></div>
+      <div><div class="stat-num">{{ stats.cats.get('Patient',0) }}</div><div class="stat-lbl">Patients</div></div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-ic" style="background:#fef3c7;color:#d97706;"><i class="bi bi-building"></i></div>
+      <div><div class="stat-num">{{ stats.cats.get('Fournisseur',0) }}</div><div class="stat-lbl">Fournisseurs</div></div>
+    </div>
+  </div>
 </div>
 
-{# ── Barre de recherche ── #}
-<form method="get" class="mb-3">
-  <div class="input-group shadow-sm" style="border-radius:.5rem;overflow:hidden;">
-    <span class="input-group-text bg-white border-end-0 pe-1">
-      <i class="bi bi-search text-muted"></i>
-    </span>
-    <input name="q" value="{{ q }}" class="form-control border-start-0 ps-1"
-           placeholder="Rechercher par nom, email, téléphone, adresse, fonction…" autocomplete="off">
-    {% if q or cat_filter %}
-    <a class="btn btn-outline-secondary border-start-0" href="{{ url_for('index') }}" title="Réinitialiser">
-      <i class="bi bi-x-lg"></i>
-    </a>
-    {% endif %}
-    <button class="btn btn-primary" type="submit">Rechercher</button>
-  </div>
-</form>
-
-{# ── Filtre par catégorie ── #}
-<div class="mb-4 d-flex flex-wrap gap-2">
-  <a href="{{ url_for('index', q=q) }}"
-     class="btn btn-sm {{ 'btn-dark' if not cat_filter else 'btn-outline-dark' }}">
-    Tous
-  </a>
-  {% for cat in categories %}
-  <a href="{{ url_for('index', q=q, categorie=cat) }}"
-     class="btn btn-sm {{ 'btn-' + cat_colors.get(cat, 'secondary') if cat == cat_filter else 'btn-outline-' + cat_colors.get(cat, 'secondary') }}">
-    {{ cat }}
-  </a>
-  {% endfor %}
-</div>
-
-{% if contacts %}
+{# ── Contact list card ── #}
 <div class="card">
-  <ul class="list-group list-group-flush" id="contactList">
-    {% for c in contacts %}
-    {% set color = palette[loop.index0 % palette | length] %}
-    <li class="list-group-item contact-row px-3 py-3 border-bottom">
-      <div class="d-flex align-items-center gap-3">
 
-        {# Avatar #}
-        <div class="avatar text-white" style="background: {{ color }};">
-          {{ c['nom'][0] | upper }}
-        </div>
-
-        {# Infos #}
-        <div class="flex-grow-1" style="min-width:0">
-          <div class="d-flex align-items-center gap-2 flex-wrap">
-            <span class="fw-semibold">{{ c['nom'] }}</span>
-            {% if c['categorie'] %}
-            <span class="badge bg-{{ cat_colors.get(c['categorie'], 'secondary') }} fw-normal" style="font-size:.7rem;">
-              {{ c['categorie'] }}
-            </span>
-            {% endif %}
-            {% if c['fonction'] %}
-            <span class="text-muted small">· {{ c['fonction'] }}</span>
-            {% endif %}
-          </div>
-          <div class="text-muted small d-flex flex-wrap gap-2 mt-1">
-            {% if c['email'] %}
-            <span><i class="bi bi-envelope me-1 opacity-75"></i>{{ c['email'] }}</span>
-            {% endif %}
-            {% if c['telephone'] %}
-            <span><i class="bi bi-telephone me-1 opacity-75"></i>{{ c['telephone'] }}</span>
-            {% endif %}
-            {% if c['entreprise'] %}
-            <span><i class="bi bi-building me-1 opacity-75"></i>{{ c['entreprise'] }}</span>
-            {% endif %}
-            {% if c['adresse'] %}
-            <span><i class="bi bi-geo-alt me-1 opacity-75"></i>{{ c['adresse'] }}</span>
-            {% endif %}
-          </div>
-        </div>
-
-        {# Boutons d'action #}
-        <div class="d-flex gap-1 flex-shrink-0 flex-wrap justify-content-end">
-
-          {# Email — seulement si le contact a un email #}
-          {% if c['email'] %}
-          <a href="{{ url_for('send_email', contact_id=c['id']) }}"
-             class="btn btn-sm btn-outline-info btn-action" title="Envoyer un email">
-            <i class="bi bi-envelope-fill"></i>
-          </a>
-          {% endif %}
-
-          {# WhatsApp — seulement si le contact a un téléphone #}
-          {% if c['telephone'] %}
-          <a href="{{ url_for('whatsapp', contact_id=c['id']) }}"
-             class="btn btn-sm btn-action" target="_blank"
-             title="Envoyer via WhatsApp"
-             style="background:#25D366;color:#fff;border:none;">
-            <i class="bi bi-whatsapp"></i>
-          </a>
-          {% endif %}
-
-          {# Modifier #}
-          <a href="{{ url_for('edit_contact', contact_id=c['id']) }}"
-             class="btn btn-sm btn-outline-secondary btn-action" title="Modifier">
-            <i class="bi bi-pencil"></i>
-          </a>
-
-          {# Supprimer #}
-          <form method="post" action="{{ url_for('delete_contact', contact_id=c['id']) }}"
-                data-nom="{{ c['nom'] }}"
-                onsubmit="return confirm('Supprimer « ' + this.dataset.nom + ' » ?');">
-            <button class="btn btn-sm btn-outline-danger btn-action" type="submit" title="Supprimer">
-              <i class="bi bi-trash"></i>
-            </button>
-          </form>
-        </div>
-
+  {# Toolbar #}
+  <div style="padding:14px 20px;border-bottom:1px solid var(--border);">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <form class="s-wrap" method="get" id="sf">
+        <i class="bi bi-search si"></i>
+        <input name="q" value="{{ q }}" placeholder="Nom, email, téléphone…" autocomplete="off" id="si">
+        {% if cat_filter %}<input type="hidden" name="categorie" value="{{ cat_filter }}">{% endif %}
+      </form>
+      <div class="d-flex gap-1 flex-wrap">
+        <a href="{{ url_for('index', q=q) }}" class="cat-pill text-decoration-none"
+           style="{{ 'background:#1e293b;color:#fff;' if not cat_filter else 'background:#f1f5f9;color:#64748b;' }}">Tous</a>
+        {% for cat in categories %}
+        <a href="{{ url_for('index', q=q, categorie=cat) }}" class="cat-pill text-decoration-none"
+           style="{{ 'background:#1e293b;color:#fff;' if cat_filter==cat else 'background:#f1f5f9;color:#64748b;' }}">{{ cat }}</a>
+        {% endfor %}
       </div>
-    </li>
-    {% endfor %}
-  </ul>
-</div>
+      <span class="ms-auto" style="font-size:12px;color:var(--muted);white-space:nowrap;">
+        {{ contacts|length }} contact{{ 's' if contacts|length!=1 else '' }}{% if q %} · «&nbsp;{{ q }}&nbsp;»{% endif %}
+      </span>
+    </div>
+  </div>
 
-{% else %}
-<div class="card">
-  <div class="card-body text-center py-5 text-muted">
-    <i class="bi bi-person-x fs-1 d-block mb-3 opacity-50"></i>
+  {# Contacts #}
+  {% if contacts %}
+  {% set lc = {
+    'A':'linear-gradient(135deg,#6366f1,#818cf8)','B':'linear-gradient(135deg,#8b5cf6,#a78bfa)',
+    'C':'linear-gradient(135deg,#10b981,#34d399)','D':'linear-gradient(135deg,#f59e0b,#fbbf24)',
+    'E':'linear-gradient(135deg,#ef4444,#f87171)','F':'linear-gradient(135deg,#0ea5e9,#38bdf8)',
+    'G':'linear-gradient(135deg,#14b8a6,#2dd4bf)','H':'linear-gradient(135deg,#f43f5e,#fb7185)',
+    'I':'linear-gradient(135deg,#6366f1,#818cf8)','J':'linear-gradient(135deg,#8b5cf6,#a78bfa)',
+    'K':'linear-gradient(135deg,#10b981,#34d399)','L':'linear-gradient(135deg,#f59e0b,#fbbf24)',
+    'M':'linear-gradient(135deg,#ef4444,#f87171)','N':'linear-gradient(135deg,#0ea5e9,#38bdf8)',
+    'O':'linear-gradient(135deg,#14b8a6,#2dd4bf)','P':'linear-gradient(135deg,#f43f5e,#fb7185)',
+    'Q':'linear-gradient(135deg,#6366f1,#818cf8)','R':'linear-gradient(135deg,#8b5cf6,#a78bfa)',
+    'S':'linear-gradient(135deg,#10b981,#34d399)','T':'linear-gradient(135deg,#f59e0b,#fbbf24)',
+    'U':'linear-gradient(135deg,#ef4444,#f87171)','V':'linear-gradient(135deg,#0ea5e9,#38bdf8)',
+    'W':'linear-gradient(135deg,#14b8a6,#2dd4bf)','X':'linear-gradient(135deg,#f43f5e,#fb7185)',
+    'Y':'linear-gradient(135deg,#6366f1,#818cf8)','Z':'linear-gradient(135deg,#8b5cf6,#a78bfa)'
+  } %}
+  {% set cs = {
+    'Client':      'background:#eef2ff;color:#4f46e5;',
+    'Patient':     'background:#d1fae5;color:#059669;',
+    'Fournisseur': 'background:#fef3c7;color:#d97706;',
+    'Laboratoire': 'background:#f3e8ff;color:#9333ea;',
+    'Partenaire':  'background:#e0f2fe;color:#0284c7;',
+    'Autre':       'background:#f1f5f9;color:#64748b;'
+  } %}
+  <div id="clist">
+  {% for c in contacts %}
+  {% set ini = c.nom[0]|upper %}
+  {% set cat = c.categorie or 'Autre' %}
+  <div class="c-row">
+    <div class="c-av" style="background:{{ lc.get(ini,'linear-gradient(135deg,#6366f1,#818cf8)') }};">{{ ini }}</div>
+    <div style="flex:1;min-width:0;">
+      <div style="font-weight:600;font-size:14px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ c.nom }}</div>
+      <div class="d-flex flex-wrap gap-3 mt-1" style="font-size:12px;color:var(--muted);">
+        {% if c.email %}<span><i class="bi bi-envelope me-1 opacity-60"></i>{{ c.email }}</span>{% endif %}
+        {% if c.telephone %}<span><i class="bi bi-telephone me-1 opacity-60"></i>{{ c.telephone }}</span>{% endif %}
+        {% if c.entreprise %}<span class="d-none d-md-inline"><i class="bi bi-building me-1 opacity-60"></i>{{ c.entreprise }}</span>{% endif %}
+      </div>
+    </div>
+    <div class="d-none d-lg-block flex-shrink-0">
+      <span class="cat-pill" style="{{ cs.get(cat,'background:#f1f5f9;color:#64748b;') }}">{{ cat }}</span>
+    </div>
+    <div class="d-flex gap-1 flex-shrink-0">
+      {% if c.email %}
+      <a href="{{ url_for('send_email', contact_id=c.id) }}" class="act-btn mail" title="Email"><i class="bi bi-envelope"></i></a>
+      {% endif %}
+      {% if c.telephone %}
+      <a href="{{ url_for('whatsapp', contact_id=c.id) }}" class="act-btn wa" title="WhatsApp" target="_blank"><i class="bi bi-whatsapp"></i></a>
+      {% endif %}
+      <a href="{{ url_for('edit_contact', contact_id=c.id) }}" class="act-btn" title="Modifier"><i class="bi bi-pencil"></i></a>
+      <form method="post" action="{{ url_for('delete_contact', contact_id=c.id) }}"
+            onsubmit="return confirm('Supprimer « {{ c.nom }} » ?');" style="margin:0;">
+        <button type="submit" class="act-btn del" title="Supprimer"><i class="bi bi-trash"></i></button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+  </div>
+
+  {% else %}
+  <div style="text-align:center;padding:60px 20px;color:var(--muted);">
+    <i class="bi bi-person-x" style="font-size:50px;opacity:.2;display:block;margin-bottom:16px;"></i>
+    <div style="font-weight:600;font-size:15px;color:#475569;margin-bottom:8px;">
+      {% if q %}Aucun résultat pour « {{ q }} »{% elif cat_filter %}Aucun contact dans « {{ cat_filter }} »{% else %}Aucun contact{% endif %}
+    </div>
     {% if q or cat_filter %}
-      Aucun contact ne correspond à votre recherche.
-      <br><a href="{{ url_for('index') }}" class="mt-2 d-inline-block">Voir tous les contacts</a>
+    <a href="{{ url_for('index') }}" style="font-size:13px;color:var(--pr);text-decoration:none;">Voir tous les contacts</a>
     {% else %}
-      Aucun contact pour l'instant.
-      <br><a href="{{ url_for('add_contact') }}" class="mt-2 d-inline-block">Ajouter le premier contact</a>
+    <a href="{{ url_for('add_contact') }}" class="btn btn-primary btn-sm mt-2">Ajouter le premier contact</a>
     {% endif %}
   </div>
+  {% endif %}
 </div>
-{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+let t;
+document.getElementById('si').addEventListener('input',function(){
+  clearTimeout(t);t=setTimeout(()=>document.getElementById('sf').submit(),380);
+});
+</script>
 {% endblock %}

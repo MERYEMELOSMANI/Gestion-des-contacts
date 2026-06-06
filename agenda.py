@@ -88,6 +88,7 @@ class AgendaApp:
         self.current_year  = today.year
         self.current_month = today.month
         self.selected_date = today
+        self._pending_slot = None   # créneau sélectionné mais pas encore confirmé
 
         self._build_ui()
         self._refresh_all()
@@ -133,6 +134,7 @@ class AgendaApp:
                  font=("Arial", 9), fg="#555").pack(anchor="w", pady=(6, 0))
         self.combo_creneau = ttk.Combobox(left, state="readonly", width=10)
         self.combo_creneau.pack(anchor="w")
+        self.combo_creneau.bind("<<ComboboxSelected>>", self._on_creneau_selected)
 
         tk.Label(left, text="Motif :", bg="#f0f4f8",
                  font=("Arial", 9), fg="#555").pack(anchor="w", pady=(6, 0))
@@ -166,9 +168,10 @@ class AgendaApp:
         self.tree.column("motif",   width=260)
         self.tree.column("action",  width=80,  anchor="center")
 
-        # Style : lignes libres en vert, occupées en rouge
-        self.tree.tag_configure("libre",  background="#f0fff4", foreground="#2d6a4f")
-        self.tree.tag_configure("pris",   background="#fff0f0", foreground="#e63946")
+        # Style : libre=vert, pris=rouge, en_cours=orange (sélectionné non confirmé)
+        self.tree.tag_configure("libre",   background="#f0fff4", foreground="#2d6a4f")
+        self.tree.tag_configure("pris",    background="#fff0f0", foreground="#e63946")
+        self.tree.tag_configure("en_cours", background="#fff3cd", foreground="#664d03")
 
         sb = ttk.Scrollbar(right, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=sb.set)
@@ -302,9 +305,10 @@ class AgendaApp:
                                  tags=("pris",),
                                  iid=f"rdv_{r['id']}")
             else:
+                tag = "en_cours" if heure == self._pending_slot else "libre"
                 self.tree.insert("", "end",
                                  values=(heure, "— Libre —", "", ""),
-                                 tags=("libre",))
+                                 tags=(tag,))
 
     # ── Actions ────────────────────────────────────────────────────────────────
 
@@ -329,12 +333,13 @@ class AgendaApp:
                 f"RDV confirmé avec {nom_contact}\nle {date_str} à {heure}"
             )
             self.entry_motif.delete(0, tk.END)
+            self._pending_slot = None
             self._refresh_creneaux()
         else:
             messagebox.showerror("Erreur", "Ce créneau vient d'être pris. Actualisez.")
 
     def _on_tree_click(self, event):
-        """Annule un RDV quand on clique sur la colonne 'Annuler'."""
+        """Sélectionne un créneau libre ou annule un RDV au clic."""
         region = self.tree.identify_region(event.x, event.y)
         col    = self.tree.identify_column(event.x)
         iid    = self.tree.identify_row(event.y)
@@ -350,6 +355,34 @@ class AgendaApp:
             ):
                 annuler_rdv(rdv_id)
                 self._refresh_creneaux()
+        elif region == "cell" and iid:
+            tags = self.tree.item(iid, "tags")
+            if "libre" in tags or "en_cours" in tags:
+                heure = self.tree.item(iid, "values")[0]
+                self.combo_creneau.set(heure)
+                self._set_pending_slot(heure)
+
+
+    def _on_creneau_selected(self, event=None):
+        self._set_pending_slot(self.combo_creneau.get())
+
+    def _set_pending_slot(self, heure):
+        """Surligne en orange le créneau sélectionné dans le tableau."""
+        # Remettre l'ancien en "libre"
+        if self._pending_slot:
+            for iid in self.tree.get_children():
+                if (self.tree.item(iid, "values")[0] == self._pending_slot
+                        and "en_cours" in self.tree.item(iid, "tags")):
+                    self.tree.item(iid, tags=("libre",))
+                    break
+        self._pending_slot = heure
+        # Appliquer le nouveau surlignage
+        for iid in self.tree.get_children():
+            if self.tree.item(iid, "values")[0] == heure:
+                if "libre" in self.tree.item(iid, "tags"):
+                    self.tree.item(iid, tags=("en_cours",))
+                    self.tree.see(iid)
+                break
 
 
 # ── Point d'entrée ─────────────────────────────────────────────────────────────

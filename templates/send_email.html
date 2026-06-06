@@ -1,16 +1,16 @@
 {% extends 'base.html' %}
-{% block title %}Envoyer un email à {{ contact['nom'] }}{% endblock %}
+{% block title %}Envoyer un email à {{ contact['nom'] }} — ContactBook Pro{% endblock %}
+{% block page_title %}<i class="bi bi-envelope" style="color:var(--pr);"></i>&nbsp;Envoyer un message{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
   <div class="col-md-7 col-lg-6">
 
-    <div class="d-flex align-items-center gap-2 mb-4">
-      <a href="{{ url_for('index') }}" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-arrow-left"></i>
-      </a>
-      <h2 class="fw-bold mb-0">Envoyer un email</h2>
-    </div>
+    <a href="{{ url_for('index') }}"
+       style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:20px;"
+       onmouseover="this.style.color='var(--pr)'" onmouseout="this.style.color='var(--muted)'">
+      <i class="bi bi-arrow-left"></i> Retour aux contacts
+    </a>
 
     {# Carte destinataire #}
     <div class="card mb-4" style="border-left: 4px solid #0dcaf0;">
@@ -76,6 +76,42 @@ Cordialement">
             </div>
           </div>
 
+          {# IA Gemini #}
+          <div class="mb-4 p-3 rounded" style="border:2px solid #6f42c1;background:#faf8ff;">
+            <div class="d-flex align-items-center gap-2 mb-3">
+              <i class="bi bi-stars" style="color:#6f42c1;font-size:1.2rem;"></i>
+              <span class="fw-semibold" style="color:#6f42c1;">Générer avec l'IA Gemini</span>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label small text-muted mb-1">Type de message</label>
+              <div class="btn-group btn-group-sm" role="group">
+                <input type="radio" class="btn-check" name="ia_type" id="ia_email" value="email" checked>
+                <label class="btn btn-outline-primary" for="ia_email">
+                  <i class="bi bi-envelope me-1"></i>Email
+                </label>
+                <input type="radio" class="btn-check" name="ia_type" id="ia_whatsapp" value="whatsapp">
+                <label class="btn btn-outline-success" for="ia_whatsapp">
+                  <i class="bi bi-whatsapp me-1"></i>WhatsApp
+                </label>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label small text-muted" for="ia_context">Contexte (facultatif)</label>
+              <input type="text" id="ia_context" class="form-control form-control-sm"
+                     placeholder="Ex : confirmation RDV demain à 10h, relance résultats d'analyses…">
+            </div>
+
+            <button type="button" id="btnGenerer" class="btn btn-sm text-white" style="background:#6f42c1;">
+              <span id="btnGenererText"><i class="bi bi-stars me-1"></i>Générer le message</span>
+              <span id="btnGenererLoad" class="d-none">
+                <span class="spinner-border spinner-border-sm me-1" role="status"></span>Génération en cours…
+              </span>
+            </button>
+            <div id="ia_error" class="text-danger small mt-2 d-none"></div>
+          </div>
+
           <div class="d-flex gap-2">
             <button class="btn btn-info text-white px-4" type="submit">
               <i class="bi bi-send-fill me-1"></i>Envoyer
@@ -106,6 +142,61 @@ document.querySelectorAll('.template-btn').forEach(function(btn) {
     document.getElementById('sujet').value = this.dataset.sujet;
     document.getElementById('corps').value  = this.dataset.corps;
   });
+});
+
+document.getElementById('btnGenerer').addEventListener('click', async function () {
+  const btn      = this;
+  const btnText  = document.getElementById('btnGenererText');
+  const btnLoad  = document.getElementById('btnGenererLoad');
+  const errDiv   = document.getElementById('ia_error');
+  const msgType  = document.querySelector('input[name="ia_type"]:checked').value;
+  const context  = document.getElementById('ia_context').value.trim();
+
+  btnText.classList.add('d-none');
+  btnLoad.classList.remove('d-none');
+  btn.disabled = true;
+  errDiv.classList.add('d-none');
+
+  try {
+    const resp = await fetch('/api/generate-message', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contact_id: {{ contact['id'] }},
+        type: msgType,
+        context: context
+      })
+    });
+    const data = await resp.json();
+
+    if (data.error) {
+      errDiv.textContent = 'Erreur : ' + data.error;
+      errDiv.classList.remove('d-none');
+    } else if (msgType === 'email') {
+      if (data.sujet) document.getElementById('sujet').value = data.sujet;
+      if (data.corps) document.getElementById('corps').value = data.corps;
+      if (data.fallback) {
+        errDiv.className = 'text-warning small mt-2';
+        errDiv.textContent = '⚠ Gemini indisponible — modèle de base utilisé. Vous pouvez modifier le texte.';
+        errDiv.classList.remove('d-none');
+      }
+    } else {
+      if (data.message) document.getElementById('corps').value = data.message;
+      document.getElementById('sujet').value = 'Message WhatsApp — {{ contact["nom"] }}';
+      if (data.fallback) {
+        errDiv.className = 'text-warning small mt-2';
+        errDiv.textContent = '⚠ Gemini indisponible — modèle de base utilisé. Vous pouvez modifier le texte.';
+        errDiv.classList.remove('d-none');
+      }
+    }
+  } catch (e) {
+    errDiv.textContent = 'Erreur réseau : ' + e.message;
+    errDiv.classList.remove('d-none');
+  } finally {
+    btnText.classList.remove('d-none');
+    btnLoad.classList.add('d-none');
+    btn.disabled = false;
+  }
 });
 </script>
 {% endblock %}
