@@ -469,16 +469,17 @@
       <div class="chat-head-title">Assistant Agenda IA</div>
       <div class="chat-head-sub">Posez-moi vos questions</div>
     </div>
+    <button class="chat-close-btn" id="chat-reset-btn" title="Nouvelle conversation" style="font-size:14px;opacity:0.7;margin-right:4px;"><i class="bi bi-arrow-counterclockwise"></i></button>
     <button class="chat-close-btn" id="chat-close-btn"><i class="bi bi-x-lg"></i></button>
   </div>
   <div class="chat-messages" id="chat-messages">
     <div class="chat-msg bot">
       <div class="chat-avatar"><i class="bi bi-robot"></i></div>
-      <div class="chat-bubble">Bonjour ! Demandez-moi : le prochain RDV, le nombre de rendez-vous, la liste, ou toute info sur votre agenda.</div>
+      <div class="chat-bubble">Bonjour ! Posez-moi n'importe quelle question : prochain RDV, RDV d'aujourd'hui, de demain, cette semaine, la liste complète, etc.</div>
     </div>
   </div>
   <div class="chat-footer">
-    <input class="chat-input" id="chat-input" placeholder="Ex: Quel est mon prochain RDV ?" maxlength="300">
+    <input class="chat-input" id="chat-input" placeholder="Posez votre question…" maxlength="300">
     <button class="chat-send" id="chat-send"><i class="bi bi-send-fill"></i></button>
   </div>
 </div>
@@ -487,16 +488,29 @@
 <script>
 // ── Chatbot IA ──
 (function() {
-  const fab   = document.getElementById('chat-fab');
-  const panel = document.getElementById('chat-panel');
+  const fab      = document.getElementById('chat-fab');
+  const panel    = document.getElementById('chat-panel');
   const closeBtn = document.getElementById('chat-close-btn');
-  const input = document.getElementById('chat-input');
-  const send  = document.getElementById('chat-send');
-  const msgs  = document.getElementById('chat-messages');
+  const resetBtn = document.getElementById('chat-reset-btn');
+  const input    = document.getElementById('chat-input');
+  const send     = document.getElementById('chat-send');
+  const msgs     = document.getElementById('chat-messages');
   if (!fab) return;
 
-  fab.onclick     = () => { panel.classList.toggle('open'); if(panel.classList.contains('open')) setTimeout(()=>input.focus(),200); };
+  fab.onclick      = () => { panel.classList.toggle('open'); if(panel.classList.contains('open')) setTimeout(()=>input.focus(),200); };
   closeBtn.onclick = () => panel.classList.remove('open');
+
+  resetBtn.onclick = async () => {
+    msgs.innerHTML = '';
+    appendMsg("Conversation réinitialisée. Posez-moi votre question !", 'bot');
+    try {
+      await fetch('/api/agenda/chat', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ question: '__reset__', reset: true })
+      });
+    } catch(e) {}
+    input.focus();
+  };
 
   function appendMsg(text, role) {
     const wrap = document.createElement('div');

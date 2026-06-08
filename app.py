@@ -880,8 +880,14 @@ def export_csv():
 def agenda_chat():
     data = request.get_json(silent=True) or {}
     question = data.get("question", "").strip()
-    if not question:
-        return jsonify({"error": "Question vide"}), 400
+    reset    = data.get("reset", False)
+
+    if reset:
+        session.pop("chat_history", None)
+        session.modified = True
+
+    if not question or question == "__reset__":
+        return jsonify({"reply": "ok"}), 200
 
     conn = get_db()
     try:
@@ -895,27 +901,44 @@ def agenda_chat():
         conn.close()
 
     today = datetime.date.today().isoformat()
-    if rows:
-        agenda_lines = "\n".join(
-            f"- {r['date_rdv']} à {r['heure_rdv']} : {r['nom']} ({r['categorie'] or 'N/A'}) — {r['motif'] or 'motif non précisé'}"
-            for r in rows
-        )
-    else:
-        agenda_lines = "Aucun rendez-vous planifié pour l'instant."
+    def _nom_affichable(nom):
+        # "karim.elidrissi" → "Karim Elidrissi"
+        return " ".join(p.capitalize() for p in re.split(r"[\s.\-_]+", nom))
 
-    prompt = (
-        f"Tu es un assistant intelligent spécialisé dans la gestion d'agenda.\n"
+    agenda_lines = "\n".join(
+        f"- {r['date_rdv']} à {r['heure_rdv']} : {_nom_affichable(r['nom'])} ({r['categorie'] or 'N/A'}) — {r['motif'] or 'motif non précisé'}"
+        for r in rows
+    ) if rows else "Aucun rendez-vous planifié pour l'instant."
+
+    system_text = (
+        f"Tu es un assistant conversationnel intelligent pour la gestion d'agenda et de contacts. "
         f"Aujourd'hui : {today}.\n\n"
-        f"Rendez-vous planifiés :\n{agenda_lines}\n\n"
-        f"Question : {question}\n\n"
-        f"Réponds en français, de façon claire et concise (2-4 phrases max). "
-        f"Utilise les données ci-dessus pour répondre avec précision."
+        f"Voici TOUS les rendez-vous planifiés (utilise ces données pour répondre) :\n{agenda_lines}\n\n"
+        f"Règles importantes :\n"
+        f"- Réponds toujours en français.\n"
+        f"- Si l'utilisateur mentionne un prénom ou un nom (ex : 'Karim', 'Dr Martin'), "
+        f"cherche dans la liste ci-dessus les RDV avec ce contact et donne la date, l'heure et le motif.\n"
+        f"- Si plusieurs RDV existent avec ce contact, liste-les tous.\n"
+        f"- Si aucun RDV ne correspond au nom mentionné, dis-le clairement.\n"
+        f"- Sois naturel et conversationnel. Réponds à toutes les questions, pas uniquement sur l'agenda."
     )
+
+    history = session.get("chat_history", [])
+
+    # Construire la conversation multi-tour pour Gemini
+    contents = [
+        {"role": "user",  "parts": [{"text": system_text}]},
+        {"role": "model", "parts": [{"text": "Bonjour ! Je suis votre assistant agenda. Comment puis-je vous aider ?"}]},
+    ]
+    for h in history[-8:]:  # 4 derniers échanges
+        contents.append({"role": "user",  "parts": [{"text": h["q"]}]})
+        contents.append({"role": "model", "parts": [{"text": h["a"]}]})
+    contents.append({"role": "user", "parts": [{"text": question}]})
 
     try:
         payload = json.dumps({
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.5, "maxOutputTokens": 300}
+            "contents": contents,
+            "generationConfig": {"temperature": 0.7, "maxOutputTokens": 500}
         }).encode("utf-8")
         req = urllib.request.Request(
             f"{GEMINI_URL}?key={GEMINI_API_KEY}",
@@ -926,36 +949,108 @@ def agenda_chat():
         with urllib.request.urlopen(req, timeout=20) as resp:
             result = json.loads(resp.read().decode("utf-8"))
         text = result["candidates"][0]["content"]["parts"][0]["text"].strip()
+        history.append({"q": question, "a": text})
+        session["chat_history"] = history[-10:]
+        session.modified = True
         return jsonify({"reply": text})
     except Exception:
-        return _agenda_chat_fallback(question, rows, today)
+        reply = _agenda_chat_fallback(question, rows, today)
+        history.append({"q": question, "a": reply})
+        session["chat_history"] = history[-10:]
+        session.modified = True
+        return jsonify({"reply": reply})
 
 
 def _agenda_chat_fallback(question, rows, today):
-    q = question.lower()
+    q     = question.lower()
     total = len(rows)
+    futurs = [r for r in rows if r["date_rdv"] >= today]
 
-    if any(w in q for w in ["combien", "nombre", "total"]):
-        return jsonify({"reply": f"Il y a actuellement {total} rendez-vous planifié(s) dans l'agenda."})
+    # Recherche par nom de contact (prioritaire)
+    # Découpe sur espaces, points et tirets pour gérer "karim.elidrissi", "jean-marc", etc.
+    matched = []
+    for r in rows:
+        nom_parts = re.split(r"[\s.\-_]+", r["nom"].lower())
+        if any(part in q for part in nom_parts if len(part) >= 3):
+            matched.append(r)
+    if matched:
+        nom_affiche = " ".join(p.capitalize() for p in re.split(r"[\s.\-_]+", matched[0]["nom"]))
+        if len(matched) == 1:
+            r = matched[0]
+            statut = "à venir" if r["date_rdv"] >= today else "passé"
+            return (
+                f"Vous avez un rendez-vous {statut} avec {nom_affiche} "
+                f"le {r['date_rdv']} à {r['heure_rdv']}"
+                + (f" — {r['motif']}" if r['motif'] else "") + "."
+            )
+        else:
+            lignes = "; ".join(
+                f"le {r['date_rdv']} à {r['heure_rdv']}" + (f" ({r['motif']})" if r['motif'] else "")
+                for r in matched
+            )
+            return f"Vous avez {len(matched)} rendez-vous avec {nom_affiche} : {lignes}."
 
-    if any(w in q for w in ["prochain", "suivant", "aujourd'hui", "aujourd hui", "demain"]):
-        futurs = [r for r in rows if r["date_rdv"] >= today]
+    if any(w in q for w in ["combien", "nombre", "total", "count"]):
+        return f"Il y a actuellement {total} rendez-vous planifié(s) dans votre agenda."
+
+    if any(w in q for w in ["prochain", "suivant", "procha"]):
         if futurs:
             r = futurs[0]
-            return jsonify({"reply": f"Le prochain RDV est le {r['date_rdv']} à {r['heure_rdv']} avec {r['nom']} ({r['motif'] or 'motif non précisé'})."})
-        return jsonify({"reply": "Aucun rendez-vous à venir trouvé dans l'agenda."})
+            return f"Votre prochain RDV est le {r['date_rdv']} à {r['heure_rdv']} avec {r['nom']} — {r['motif'] or 'motif non précisé'}."
+        return "Vous n'avez aucun rendez-vous à venir dans l'agenda."
 
-    if any(w in q for w in ["liste", "tous", "tout", "affiche", "montre"]):
+    if any(w in q for w in ["aujourd'hui", "aujourd hui", "ce soir", "ce matin"]):
+        du_jour = [r for r in rows if r["date_rdv"] == today]
+        if du_jour:
+            resume = "; ".join(f"{r['heure_rdv']} — {r['nom']}" for r in du_jour)
+            return f"Aujourd'hui vous avez {len(du_jour)} RDV : {resume}."
+        return "Vous n'avez aucun rendez-vous aujourd'hui."
+
+    if "demain" in q:
+        tomorrow = (datetime.date.today() + datetime.timedelta(days=1)).isoformat()
+        demain = [r for r in rows if r["date_rdv"] == tomorrow]
+        if demain:
+            resume = "; ".join(f"{r['heure_rdv']} — {r['nom']}" for r in demain)
+            return f"Demain vous avez {len(demain)} RDV : {resume}."
+        return "Vous n'avez aucun rendez-vous demain."
+
+    if any(w in q for w in ["cette semaine", "semaine"]):
+        start = datetime.date.today()
+        end   = start + datetime.timedelta(days=7)
+        semaine = [r for r in rows if start.isoformat() <= r["date_rdv"] <= end.isoformat()]
+        if semaine:
+            resume = "; ".join(f"{r['date_rdv']} {r['heure_rdv']} — {r['nom']}" for r in semaine[:5])
+            return f"Cette semaine vous avez {len(semaine)} RDV : {resume}."
+        return "Aucun rendez-vous prévu cette semaine."
+
+    if any(w in q for w in ["liste", "tous", "tout", "affiche", "montre", "voir", "quels"]):
         if not rows:
-            return jsonify({"reply": "L'agenda est vide pour l'instant."})
+            return "Votre agenda est vide pour l'instant."
         resume = "; ".join(f"{r['date_rdv']} {r['heure_rdv']} — {r['nom']}" for r in rows[:5])
         suffix = f" (et {total - 5} autres)" if total > 5 else ""
-        return jsonify({"reply": f"Voici les RDV : {resume}{suffix}."})
+        return f"Voici vos RDV : {resume}{suffix}."
+
+    if any(w in q for w in ["dernier", "passé", "précédent"]):
+        passes = [r for r in rows if r["date_rdv"] < today]
+        if passes:
+            r = passes[-1]
+            return f"Votre dernier RDV passé était le {r['date_rdv']} à {r['heure_rdv']} avec {r['nom']}."
+        return "Aucun rendez-vous passé trouvé dans l'agenda."
+
+    if any(w in q for w in ["bonjour", "salut", "bonsoir", "hello"]):
+        return "Bonjour ! Je suis votre assistant agenda. Vous pouvez me demander votre prochain RDV, la liste de vos rendez-vous, ceux d'aujourd'hui, de demain, etc."
+
+    if any(w in q for w in ["merci", "super", "parfait", "ok", "d'accord"]):
+        return "De rien ! N'hésitez pas si vous avez d'autres questions sur votre agenda."
 
     if total == 0:
-        return jsonify({"reply": "L'agenda est vide. Commencez par ajouter un rendez-vous."})
+        return "Votre agenda est vide. Commencez par ajouter un rendez-vous depuis la page Planification."
 
-    return jsonify({"reply": f"Votre agenda contient {total} rendez-vous. Posez-moi une question plus précise (prochain RDV, liste, nombre, etc.)."})
+    return (
+        f"Votre agenda contient {total} rendez-vous ({len(futurs)} à venir). "
+        f"Je peux vous dire : le prochain RDV, les RDV d'aujourd'hui ou de demain, "
+        f"ceux de la semaine, la liste complète ou le nombre total."
+    )
 
 
 if __name__ == "__main__":
