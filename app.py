@@ -18,7 +18,7 @@ from flask import (Flask, flash, jsonify, redirect,
 
 app = Flask(__name__)
 app.jinja_env.filters['ord'] = ord
-app.secret_key = "gestion-contacts-secret-key-2024"
+app.secret_key = os.environ.get("SECRET_KEY", os.urandom(32))
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH  = os.path.join(BASE_DIR, "address_book.db")

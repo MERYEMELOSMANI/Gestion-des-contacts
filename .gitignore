@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+address_book.db
+contacts.txt
+export_contacts.csv
+.venv/
+venv/
+.DS_Store
+Thumbs.db
+*.log
