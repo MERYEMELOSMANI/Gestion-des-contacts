@@ -65,13 +65,14 @@ def login_required(f):
 
 
 def get_config(cle, default=""):
+    conn = get_db()
     try:
-        conn = get_db()
         row = conn.execute("SELECT valeur FROM config WHERE cle = ?", (cle,)).fetchone()
-        conn.close()
         return row["valeur"] if row else default
     except Exception:
         return default
+    finally:
+        conn.close()
 
 
 def set_config(cle, valeur):
@@ -114,20 +115,32 @@ def check_uniqueness(conn, nom, email, telephone, exclude_id=None):
     return errors
 
 
+def _csv_safe(val):
+    """Neutralise l'injection de formule (=, +, -, @) quand le CSV est ouvert dans Excel/Sheets."""
+    val = val or ""
+    if val and val[0] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + val
+    return val
+
+
 def sync_csv():
-    rows = get_db().execute(
-        "SELECT nom, email, telephone, IFNULL(entreprise,'') AS entreprise, "
-        "IFNULL(categorie,'') AS categorie, IFNULL(adresse,'') AS adresse, "
-        "IFNULL(fonction,'') AS fonction FROM contacts ORDER BY nom"
-    ).fetchall()
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT nom, email, telephone, IFNULL(entreprise,'') AS entreprise, "
+            "IFNULL(categorie,'') AS categorie, IFNULL(adresse,'') AS adresse, "
+            "IFNULL(fonction,'') AS fonction FROM contacts ORDER BY nom"
+        ).fetchall()
+    finally:
+        conn.close()
     # utf-8-sig ajoute le BOM pour qu'Excel détecte correctement l'UTF-8
     with open(CSV_PATH, "w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f, delimiter=";")
         w.writerow(["Nom", "Email", "Telephone", "Entreprise", "Categorie", "Adresse", "Fonction"])
         for r in rows:
-            w.writerow([r["nom"], r["email"] or "", r["telephone"] or "",
-                        r["entreprise"] or "", r["categorie"] or "",
-                        r["adresse"] or "", r["fonction"] or ""])
+            w.writerow([_csv_safe(r["nom"]), _csv_safe(r["email"]), _csv_safe(r["telephone"]),
+                        _csv_safe(r["entreprise"]), _csv_safe(r["categorie"]),
+                        _csv_safe(r["adresse"]), _csv_safe(r["fonction"])])
 
 
 def _extract_form():
