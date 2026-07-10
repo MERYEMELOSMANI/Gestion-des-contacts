@@ -644,7 +644,7 @@ def generate_message():
         else:
             return jsonify({"message": text})
 
-    except (urllib.error.HTTPError, urllib.error.URLError, Exception):
+    except Exception:
         return _fallback_message(nom, categorie, entreprise, ctx_line, msg_type)
 
 
