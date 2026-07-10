@@ -1,7 +1,6 @@
 import csv
 import datetime
 import io
-import hashlib
 import json
 import os
 import re
@@ -15,6 +14,7 @@ from functools import wraps
 
 from flask import (Flask, flash, jsonify, redirect,
                    render_template, request, send_file, session, url_for)
+from werkzeug.security import check_password_hash
 
 app = Flask(__name__)
 app.jinja_env.filters['ord'] = ord
@@ -152,16 +152,15 @@ def login():
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "").strip()
-        hashed   = hashlib.sha256(password.encode()).hexdigest()
         conn = get_db()
         try:
             row = conn.execute(
-                "SELECT id FROM admins WHERE username = ? AND password = ?",
-                (username, hashed)
+                "SELECT id, password FROM admins WHERE username = ?",
+                (username,)
             ).fetchone()
         finally:
             conn.close()
-        if row:
+        if row and check_password_hash(row["password"], password):
             session["user"] = username
             flash(f"Bienvenue, {username} !", "success")
             return redirect(url_for("index"))
