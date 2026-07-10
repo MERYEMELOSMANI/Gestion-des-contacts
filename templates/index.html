@@ -346,6 +346,12 @@ async function saveContact(e) {
   } catch(e) { console.error(e); alert("Erreur de connexion."); }
 }
 
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str == null ? '' : String(str);
+  return div.innerHTML;
+}
+
 async function openHistoryModal(id, nom) {
   document.getElementById('hm-title').textContent = `Historique : ${nom}`;
   const hContent = document.getElementById('history-content');
@@ -370,7 +376,7 @@ async function openHistoryModal(id, nom) {
             <span class="hist-type ${item.type_msg}"><i class="bi bi-${icon}"></i> ${item.type_msg.toUpperCase()}</span>
             <span>${date}</span>
           </div>
-          <div class="hist-content">${item.contenu}</div>
+          <div class="hist-content">${escapeHtml(item.contenu)}</div>
         </div>`;
     });
     hContent.innerHTML = html;
