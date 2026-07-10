@@ -476,11 +476,14 @@ def get_history(contact_id):
 @app.route("/api/history/add", methods=["POST"])
 @login_required
 def add_history():
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
     contact_id = data.get("contact_id")
     type_msg = data.get("type", "whatsapp")
     msg = data.get("msg", "")
-    
+
+    if not contact_id:
+        return jsonify({"error": "contact_id manquant"}), 400
+
     conn = get_db()
     try:
         conn.execute(
@@ -489,6 +492,8 @@ def add_history():
         )
         conn.commit()
         return jsonify({"success": True})
+    except sqlite3.IntegrityError:
+        return jsonify({"error": "Contact introuvable"}), 400
     finally:
         conn.close()
 
