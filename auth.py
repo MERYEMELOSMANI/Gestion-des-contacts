@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox
-import hashlib
+from werkzeug.security import check_password_hash
 from database import Database  # On importe votre nouvelle classe
 
 class LoginWindow:
@@ -31,16 +31,11 @@ class LoginWindow:
     def verifier_identifiants(self):
         username = self.entry_username.get().strip()
         password = self.entry_password.get().strip()
-        
-        # Hachage de la saisie pour comparer avec la DB
-        hashed_input = hashlib.sha256(password.encode()).hexdigest()
-        
-        # Requête SQL pour vérifier si l'admin existe
-        query = "SELECT * FROM admins WHERE username = ? AND password = ?"
-        resultat = self.db.fetch_all(query, (username, hashed_input))
-        
-        if len(resultat) > 0:
-            # Succès : l'utilisateur a été trouvé en base
+
+        query = "SELECT password FROM admins WHERE username = ?"
+        resultat = self.db.fetch_all(query, (username,))
+
+        if resultat and check_password_hash(resultat[0][0], password):
             self.root.destroy()
             self.on_success()
         else:

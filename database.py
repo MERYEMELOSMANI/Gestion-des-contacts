@@ -1,4 +1,5 @@
 import sqlite3
+from werkzeug.security import generate_password_hash
 
 class Database:
     def __init__(self, db_name="address_book.db"):
@@ -36,13 +37,11 @@ class Database:
         self.cursor.execute(query, params)
         return self.cursor.fetchall()
 
-# --- BLOC À AJOUTER ICI ---
 if __name__ == "__main__":
     # Ce code s'exécute uniquement si on lance "python database.py"
     db = Database()
     username = "admin"
-    # Hash de "admin123"
-    password_hash = "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9"
+    password_hash = generate_password_hash("admin123")
 
     try:
         db.execute_query("INSERT INTO admins (username, password) VALUES (?, ?)", (username, password_hash))
