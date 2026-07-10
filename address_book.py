@@ -4,10 +4,10 @@ import csv
 from contact import Contact
 
 class AddressBook:
-    def __init__(self):
+    def __init__(self, db_name="address_book.db"):
         # Connexion à la base de données
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        db_path = os.path.join(base_dir, "address_book.db")
+        db_path = db_name if os.path.isabs(db_name) else os.path.join(base_dir, db_name)
         self.conn = sqlite3.connect(db_path)
         self.cursor = self.conn.cursor()
         self.creer_table()
@@ -35,34 +35,23 @@ class AddressBook:
         return [Contact(l[0], l[1], l[2], l[3]) for l in lignes]
 
     def ajouter(self, nom, email, telephone, entreprise=""):
-        """Signature mise à jour avec 4 arguments (plus self) pour éviter l'erreur TypeError."""
-        # --- VALIDATIONS ---
+        """Retourne (succes, message) ; l'appelant décide comment afficher le message."""
         if len(nom.strip()) < 3:
-            print("Erreur : Le nom est incomplet.")
-            return
+            return False, "Le nom est incomplet."
 
-        # Validation email simplifiée
         if not ("@" in email and "." in email):
-            print("Erreur : Format email invalide.")
-            return
-        
-        # Validation téléphone
-        if not (telephone.startswith("+") and len(telephone) >= 10):
-            print("Erreur : Format téléphone invalide (+ obligatoire).")
-            return
+            return False, "Format email invalide."
 
-        # --- INSERTION SQL ---
+        if not (telephone.startswith("+") and len(telephone) >= 10):
+            return False, "Format téléphone invalide (+ obligatoire)."
+
         try:
             query = "INSERT INTO contacts (nom, email, telephone, entreprise) VALUES (?, ?, ?, ?)"
             self.cursor.execute(query, (nom, email, telephone, entreprise))
             self.conn.commit()
-            # On importe messagebox ici ou en haut du fichier
-            from tkinter import messagebox
-            messagebox.showinfo("Succès", f"Contact {nom} ajouté !")
-            
+            return True, f"Contact {nom} ajouté !"
         except sqlite3.IntegrityError:
-            from tkinter import messagebox
-            messagebox.showerror("Erreur", f"Le nom '{nom}' existe déjà dans votre carnet.")
+            return False, f"Le nom '{nom}' existe déjà dans votre carnet."
 
     def supprimer(self, nom):
         query = "DELETE FROM contacts WHERE nom = ?"

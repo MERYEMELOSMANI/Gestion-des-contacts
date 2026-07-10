@@ -86,9 +86,13 @@ class AddressBookGUI:
         ent = self.entry_ent.get().strip()
         
         if nom:
-            self.carnet.ajouter(nom, email, tel, ent)
-            self.charger_liste()
-            self.clear_entries()
+            success, msg = self.carnet.ajouter(nom, email, tel, ent)
+            if success:
+                messagebox.showinfo("Succès", msg)
+                self.charger_liste()
+                self.clear_entries()
+            else:
+                messagebox.showerror("Erreur", msg)
         else:
             messagebox.showwarning("Erreur", "Le nom est obligatoire.")
 
