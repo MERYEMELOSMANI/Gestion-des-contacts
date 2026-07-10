@@ -873,9 +873,9 @@ def export_csv():
     w = csv.writer(buf, delimiter=";", quoting=csv.QUOTE_ALL)
     w.writerow(["Nom", "Email", "Telephone", "Entreprise", "Categorie", "Adresse", "Fonction"])
     for r in rows:
-        w.writerow([r["nom"], r["email"] or "", text_cell(r["telephone"]),
-                    r["entreprise"] or "", r["categorie"] or "",
-                    r["adresse"] or "", r["fonction"] or ""])
+        w.writerow([_csv_safe(r["nom"]), _csv_safe(r["email"]), text_cell(r["telephone"]),
+                    _csv_safe(r["entreprise"]), _csv_safe(r["categorie"]),
+                    _csv_safe(r["adresse"]), _csv_safe(r["fonction"])])
 
     # BOM UTF-8 pour ouverture correcte dans Excel avec les accents
     out = io.BytesIO()
